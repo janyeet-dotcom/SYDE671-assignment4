@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SYDE671 Assignment 4</title>
+
+<style>
+html { scroll-behavior: smooth; }
+body { font-family: Arial, sans-serif; margin: 20px auto; padding: 0 20px; max-width: 1100px; line-height: 1.55; color: #222; }
+h1 { border-bottom: 2px solid #ddd; padding-bottom: 8px; text-align: center; }
+h2 { margin-top: 2.2em; border-bottom: 1px solid #ddd; padding-bottom: 4px; text-align: center; }
+h3 { margin-top: 1.6em; }
+h4 { margin-top: 1.3em; }
+h3, h4, p, ol, ul { max-width: 850px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
+ol, ul { padding-left: 2em; }
+figure { margin: 1.4em auto; text-align: center; }
+.image-grid figure { margin: 0; }
+h5 { max-width: 850px; margin: 1.3em auto 0.4em; box-sizing: border-box; }
+figcaption { font-size: 0.9em; color: #555; margin: 8px auto 0; max-width: 850px; text-align: left; }
+img { max-width: 100%; height: auto; }
+.center-image { display: block; margin: 0 auto; }
+.image-container { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-start; margin: 1.2em 0; }
+.image-container figure { flex: 0 1 500px; }
+.image-container.small figure { flex-basis: 320px; }
+.single { margin: 1.2em auto; max-width: 900px; }
+.image-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 1.2em 0; }
+table { border-collapse: collapse; margin: 1em auto; font-size: 0.95em; }
+th, td { border: 1px solid #ccc; padding: 6px 12px; text-align: center; }
+th { background: #f3f3f3; }
+pre { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 4px; padding: 12px; overflow-x: auto; max-width: 850px; margin: 1em auto; font-size: 0.85em; line-height: 1.4; box-sizing: border-box; }
+code { font-family: Consolas, "Courier New", monospace; }
+p code { background: #f3f3f3; padding: 1px 4px; border-radius: 3px; font-size: 0.92em; }
+details.code-block{max-width:850px;margin:1em auto;border:1px solid #ddd;border-radius:6px;background:#fafafa;}details.code-block summary{cursor:pointer;padding:10px 14px;font-weight:600;user-select:none;}
+details.code-block summary:hover{background:#f3f3f3;}details.code-block[open] summary{border-bottom:1px solid #ddd;}details.code-block pre{margin:0;border:none;border-radius:0;}
+/* numbered captions: Figure N / Table N (appendix: Figure A1, Table A1, ...) */
+body { counter-reset: fig tab afig atab; }
+figcaption::before { counter-increment: fig; content: "Figure " counter(fig) ". "; font-weight: 600; color: #333; }
+.appendix figcaption::before { counter-increment: afig; content: "Figure A" counter(afig) ". "; }
+caption { caption-side: bottom; font-size: 0.9em; color: #555; padding-top: 8px; max-width: 850px; text-align: left; }
+caption::before { counter-increment: tab; content: "Table " counter(tab) ". "; font-weight: 600; color: #333; }
+.appendix caption::before { counter-increment: atab; content: "Table A" counter(atab) ". "; }
+.assignment-nav { text-align: center; margin: 1em 0 0; }
+.assignment-nav a { display: inline-block; margin: 0 6px; padding: 4px 12px; border: 1px solid #ccc; border-radius: 4px; color: #1a4f8b; text-decoration: none; }
+.assignment-nav a[aria-current="page"] { background: #f3f3f3; color: #222; font-weight: 600; }
+.roadmap { text-align: center; color: #555; font-size: 0.95em; margin-top: 1.2em; }
+.roadmap a, .appendix-toc a, p a[href^="#"] { color: #1a4f8b; }
+.appendix h3 { text-align: left; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+.appendix-toc { max-width: 850px; margin: 0.5em auto 1em; }
+.image-grid { align-items: stretch; }
+.image-grid figure { display: flex; flex-direction: column; }
+.image-grid figure img { margin: 0 auto; }
+.image-grid figcaption { margin: auto 0 0; padding-top: 8px; max-width: none; }
+@media (max-width: 700px) { .image-grid { grid-template-columns: 1fr; } }
+</style>
+
+
+</head>
+<body>
+<h1>Welcome to My SYDE671 Portfolio!</h1>
+
+<nav class="assignment-nav" aria-label="Assignments">
+  <a href="https://janyeet-dotcom.github.io/SYDE671-assignment1/">Assignment 1</a>
+  <a href="https://janyeet-dotcom.github.io/SYDE671-assignment2/">Assignment 2</a>
+  <a href="https://janyeet-dotcom.github.io/SYDE671-assignment3/">Assignment 3</a>
+  <a href="https://janyeet-dotcom.github.io/SYDE671-assignment4/" aria-current="page" >Assignment 4</a>
+  <a href="https://janyeet-dotcom.github.io/SYDE671-assignment5/">Assignment 5</a>
+</nav>
+
+<!-- ================= PART ONE ================= -->
+<h2 id="part1">Part One: Fundamental Matrix Estimation From Point Correspondences</h2>
+
+<p> Assignment 3 explored image stitching from a series of prespective images and we created these cheeky little panorama images!
+    Assignment 4 aims to explore the "opposite" problem, what if we shot a series of images of the same scene from different prespectives? How can we find the relationship 
+    between the images? What points correspond to the same feature in both images? How are the cameras related? What if the objects are 3-dimensional and actually have depth?
+    (***Cue mind blown noises.***) So along the same lines as Assignment 3, let's start by assuming we have the same object in image 1 and in image 2. Then the Fundamental matrix 
+    is a 3x3 matrix that relates the two images of the same scene. For matching points x in image 1 and x' in image 2, the fundamental matrix F satisfies the equation x'^T * F * x = 0.
+    The fundamental matrix is unfortunately not magical, and does not tell us the exact correspondence between points in the two images. Instead, it tells us that for a point x in image 
+    1, the corresponding point x' in image 2 must lie on a line defined by F * x. This line is called the epipolar line. 
+</p>
+
+<h3>1.1 Implementation of Linear Least Squares</h3>
+
+<p>Similar to when we estimated homographies in Assignment 3, we're trying to fill the entries in the 3x3 Fundamental matrix by using known values of (x,y) and (x',y'). A 3x3 matrix has 9 entries,
+  and since the Fundamental matrix is invariant to scale, we can set one of the entries to 1, and now we have 8 degrees of freedom. This means we need at least 8 pairs of corresponding points to 
+  solve for the Fundamental matrix. This essentially describes the Eight-Point Algorithm. In practice, we can usually identify far more than eight matching features, so we can use least squares to 
+  solve for the Fundamental matrix. The more points we have, the better our estimate of the Fundamental matrix will be. 
+</p>
+
+<p>First, let's describe our points (x, y) and (x', y') in homogenous coordinates, if you recall from Assignment 3, this step allows us to account for translation, which otherwise would be a non-linear 
+  transformation.</p>
+
+<p> Let x = [x, y, 1]^T and x' = [x', y', 1]^T. </p>
+
+<p> Then, x'^T * F * x = 0 expands to xx'f_11 + xy'f_12 + x'yf_13 + yx'f_21 + yy'f_22 + y'yf_23 + x''f_31 + y''f_32 + f_33 = 0. </p>
+
+<p> Notice that the equation is linear in the entries of the Fundamental matrix F. </p>
+
+
+
+<figure>
+  <img src="out/building/sources.jpg" alt="The three UW campus building source photos" loading="lazy">
+  <figcaption>UW campus building set: source photos (images 0&ndash;2, left to right).</figcaption>
+</figure>
+
+<h3>A.2 Recovering Homographies</h3>
+
+<p> A homography is a transformation that maps points (x,y) in one image to points (x',y') in another image that correspond to the same feature.
+  This essentially becomes a linear algebra problem, where we want to solve P' = H * P, where P and P' are the homogeneous coordinates of the points 
+  in the two images, and H is the homography matrix. The homography matrix has 8 degrees of freedom, so we need at least 4 pairs of corresponding 
+  points to solve for it. In two images of the same scene, we can usually identify far more than four matching features, so we can use least
+  squares to solve for the homography matrix. The more points we have, the better our estimate of the homography will be. 
+</p>
+
+<p> In this first part, the points are selected manually by clicking on matching features in both images; in Part 2, we'll find them automatically using 
+  feature detection algorithms. Once we have the corresponding points, we can use them to compute the homography matrix.
+</p>
+
+<p>Before solving for the homography, Hartley normalization is applied to the point coordinates. This is when the coordinates are translated so their centroid is at 
+  the origin and scaled so that the mean distance from the origin is sqrt(2). This improves numerical conditioning of the least-squares problem and leads to
+  more stable homography estimates. 
+</p>
+
+<figure>
+<video width="640" height="360" controls>
+  <source src="out/Manual_click.mp4" type="video/mp4">
+</video>
+<figcaption>Screen recording of the manual point-clicking tool: click a feature in one image, then the same feature in the other.</figcaption>
+</figure>
+
+<p><code>computeH(im1_pts, im2_pts)</code> builds the linear system below from the clicked correspondences and solves it by least squares. 
+    A point (x,y) in image 1 maps to (x',y') in image 2 with</p>
+    
+<pre>x' = (a x + b y + c) / (g x + h y + 1)
+y' = (d x + e y + f) / (g x + h y + 1)
+
+=>  [ x  y  1  0  0  0  -x x'  -y x' ] h = x'
+    [ 0  0  0  x  y  1  -x y'  -y y' ] h = y'      h = [a b c d e f g h]^T</pre>
+    
+<p>Each correspondence adds two rows to A (n points: A is 2n x 8). The code for <code>build_system</code> and <code>computeH</code> is in <a href="#app-a">Appendix A</a>.</p>
+
+<h4>UW Campus Building</h4>
+
+<h5>pair 0 &rarr; 1: 8 points, mean reprojection error 1.82 px (max 3.76)</h5>
+
+<figure>
+  <img src="out/building/corr_0_1.jpg" alt="Building, pair 0 → 1: the 8 clicked correspondences (red, numbered) on image 0 (left) and image 1 (right)" loading="lazy">
+  <figcaption>Building, pair 0 &rarr; 1: the 8 clicked correspondences (red, numbered) on image 0 (left) and image 1 (right).</figcaption>
+</figure>
+
+<pre>H =
+[[    5.69424     0.32215 -3698.39606]
+ [    1.36470     6.51179 -2429.53489]
+ [    0.00208     0.00262     1.00000]]
+</pre>
+
+<h5>pair 1 &rarr; 2: 8 points, mean reprojection error 0.53 px (max 1.00)</h5>
+
+<figure>
+  <img src="out/building/corr_1_2.jpg" alt="Building, pair 1 → 2: the 8 clicked correspondences on image 1 (left) and image 2 (right)" loading="lazy">
+  <figcaption>Building, pair 1 &rarr; 2: the 8 clicked correspondences on image 1 (left) and image 2 (right).</figcaption>
+</figure>
+
+<pre>H =
+[[   1.80183   -0.12155 -819.35712]
+ [   0.40230    1.47668 -353.06232]
+ [   0.00058   -0.00004    1.00000]]</pre>
+
+<details class="code-block">
+<summary>Show full system of equations + H for every pair</summary>
+<pre><code>
+==== pair 0 -> 1  (8 correspondences, 16 equations, 8 unknowns) ====
+im1_pts (x, y):
+[[850.4 589.0]
+ [890.0 591.7]
+ [856.7 719.2]
+ [900.7 719.2]
+ [933.1 593.4]
+ [969.0 595.2]
+ [940.3 717.4]
+ [978.0 715.6]]
+im2_pts (x, y):
+[[309.1 594.5]
+ [355.8 599.9]
+ [301.9 734.6]
+ [350.4 730.1]
+ [400.7 606.2]
+ [440.2 602.6]
+ [390.8 731.0]
+ [427.7 726.6]]
+
+linear system A h = b, h = [a b c d e f g h]^T (raw pixel coordinates):
+A =
+[[    850.4     589.0       1.0       0.0       0.0       0.0 -262858.6 -182059.9]
+ [      0.0       0.0       0.0     850.4     589.0       1.0 -505562.8 -350160.5]
+ [    890.0     591.7       1.0       0.0       0.0       0.0 -316662.0 -210526.9]
+ [      0.0       0.0       0.0     890.0     591.7       1.0 -533911.0 -354960.8]
+ [    856.7     719.2       1.0       0.0       0.0       0.0 -258637.7 -217126.5]
+ [      0.0       0.0       0.0     856.7     719.2       1.0 -629331.8 -528324.3]
+ [    900.7     719.2       1.0       0.0       0.0       0.0 -315605.3 -252007.7]
+ [      0.0       0.0       0.0     900.7     719.2       1.0 -657601.1 -525087.9]
+ [    933.1     593.4       1.0       0.0       0.0       0.0 -373893.2 -237775.4]
+ [      0.0       0.0       0.0     933.1     593.4       1.0 -565645.2 -359719.1]
+ [    969.0     595.2       1.0       0.0       0.0       0.0 -426553.8 -262007.0]
+ [      0.0       0.0       0.0     969.0     595.2       1.0 -583919.4 -358667.5]
+ [    940.3     717.4       1.0       0.0       0.0       0.0 -367469.2 -280359.9]
+ [      0.0       0.0       0.0     940.3     717.4       1.0 -687359.3 -524419.4]
+ [    978.0     715.6       1.0       0.0       0.0       0.0 -418290.6 -306062.1]
+ [      0.0       0.0       0.0     978.0     715.6       1.0 -710614.8 -519955.0]]
+b = [309.1 594.5 355.8 599.9 301.9 734.6 350.4 730.1 400.7 606.2 440.2 602.6 390.8 731.0 427.7 726.6]
+
+recovered H (p2 ~ H p1):
+[[    5.694241     0.322148 -3698.396063]
+ [    1.364704     6.511791 -2429.534893]
+ [    0.002079     0.002618     1.000000]]
+reprojection error: mean 1.82 px, max 3.76 px
+
+==== pair 1 -> 2  (8 correspondences, 16 equations, 8 unknowns) ====
+im1_pts (x, y):
+[[ 526.2  623.5]
+ [ 542.9  626.6]
+ [ 523.1  721.6]
+ [ 542.4  719.0]
+ [ 989.5  648.9]
+ [ 989.8  657.8]
+ [1044.3  651.4]
+ [1045.1  660.9]]
+im2_pts (x, y):
+[[ 41.3 607.3]
+ [ 63.9 611.2]
+ [ 28.2 721.4]
+ [ 54.2 719.1]
+ [570.4 646.2]
+ [569.9 656.1]
+ [620.3 649.1]
+ [621.2 658.9]]
+
+linear system A h = b, h = [a b c d e f g h]^T (raw pixel coordinates):
+A =
+[[    526.2     623.5       1.0       0.0       0.0       0.0  -21732.1  -25750.5]
+ [      0.0       0.0       0.0     526.2     623.5       1.0 -319561.3 -378651.5]
+ [    542.9     626.6       1.0       0.0       0.0       0.0  -34691.3  -40039.7]
+ [      0.0       0.0       0.0     542.9     626.6       1.0 -331820.5 -382977.9]
+ [    523.1     721.6       1.0       0.0       0.0       0.0  -14751.4  -20349.1]
+ [      0.0       0.0       0.0     523.1     721.6       1.0 -377364.3 -520562.2]
+ [    542.4     719.0       1.0       0.0       0.0       0.0  -29398.1  -38969.8]
+ [      0.0       0.0       0.0     542.4     719.0       1.0 -390039.8 -517032.9]
+ [    989.5     648.9       1.0       0.0       0.0       0.0 -564410.8 -370132.6]
+ [      0.0       0.0       0.0     989.5     648.9       1.0 -639414.9 -419319.2]
+ [    989.8     657.8       1.0       0.0       0.0       0.0 -564087.0 -374880.2]
+ [      0.0       0.0       0.0     989.8     657.8       1.0 -649407.8 -431582.6]
+ [   1044.3     651.4       1.0       0.0       0.0       0.0 -647779.3 -404063.4]
+ [      0.0       0.0       0.0    1044.3     651.4       1.0 -677855.1 -422823.7]
+ [   1045.1     660.9       1.0       0.0       0.0       0.0 -649216.1 -410551.1]
+ [      0.0       0.0       0.0    1045.1     660.9       1.0 -688616.4 -435467.0]]
+b = [ 41.3 607.3  63.9 611.2  28.2 721.4  54.2 719.1 570.4 646.2 569.9 656.1 620.3 649.1 621.2 658.9]
+
+recovered H (p2 ~ H p1):
+[[   1.801829   -0.121551 -819.357116]
+ [   0.402297    1.476682 -353.062319]
+ [   0.000581   -0.000035    1.000000]]
+reprojection error: mean 0.53 px, max 1.00 px
+</code></pre></details>
+
+<p> For each adjacent image pair, a homography was estimated using manually selected
+correspondences. The homography parameters were obtained by solving the linear
+system A h = b using least-squares on Hartley-normalized coordinates.
+</p>
+
+<p>The reprojection error reported for each pair is the distance, in pixels, between H applied to a clicked point in image 1 and the point 
+  I clicked for it in image 2, averaged (or maximized) over all correspondences. It measures how well a single homography explains all of my clicks, 
+  so it reflects both click accuracy and how well the planar / fixed-centre-of-projection assumption holds. It should be read with the point count in mind: 
+  five points (as in two of the Waterloo Park pairs in <a href="#app-b">Appendix B</a>) give 10 equations for 8 unknowns, so the fit is barely overdetermined and a low error is partly guaranteed. Pairs with more, well-spread 
+  points give a more trustworthy number.
+</p>
