@@ -54,6 +54,15 @@ caption::before { counter-increment: tab; content: "Table " counter(tab) ". "; f
 @media (max-width: 700px) { .image-grid { grid-template-columns: 1fr; } }
 </style>
 
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['\\(', '\\)']],
+    displayMath: [['\\[', '\\]']]
+  }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
 </head>
 <body>
@@ -70,56 +79,262 @@ caption::before { counter-increment: tab; content: "Table " counter(tab) ". "; f
 <!-- ================= PART ONE ================= -->
 <h2 id="part1">Part One: Fundamental Matrix Estimation From Point Correspondences</h2>
 
-<p> Assignment 3 explored image stitching from a series of prespective images and we created these cheeky little panorama images!
-    Assignment 4 aims to explore the "opposite" problem, what if we shot a series of images of the same scene from different prespectives? How can we find the relationship 
-    between the images? What points correspond to the same feature in both images? How are the cameras related? What if the objects are 3-dimensional and actually have depth?
-    (***Cue mind blown noises.***) So along the same lines as Assignment 3, let's start by assuming we have the same object in image 1 and in image 2. Then the Fundamental matrix 
-    is a 3x3 matrix that relates the two images of the same scene. For matching points x in image 1 and x' in image 2, the fundamental matrix F satisfies the equation x'^T * F * x = 0.
-    The fundamental matrix is unfortunately not magical, and does not tell us the exact correspondence between points in the two images. Instead, it tells us that for a point x in image 
-    1, the corresponding point x' in image 2 must lie on a line defined by F * x. This line is called the epipolar line. 
+<p>
+Assignment 3 explored image stitching from a series of prespective images and we created these cheeky little panorama images!
+Assignment 4 aims to explore the "opposite" problem, what if we shot a series of images of the same scene from different prespectives? How can we find the relationship
+between the images? What points correspond to the same feature in both images? How are the cameras related? What if the objects are 3-dimensional and actually have depth?
+(***Cue mind blown noises.***) So along the same lines as Assignment 3, let's start by assuming we have the same object in image 1 and in image 2. Then the Fundamental matrix
+is a 3x3 matrix that relates the two images of the same scene. For matching points \(x\) in image 1 and \(x'\) in image 2, the fundamental matrix \(F\) satisfies:
 </p>
+
+\[
+{x'}^{T} F x = 0
+\]
+
+<p>The fundamental matrix is unfortunately not magical, and does not tell us the exact correspondence between points in the two images. Instead, it tells us that for a point \(x\) in image 1, 
+  the corresponding point \(x'\) in image 2 must lie on an epipolar line. This line is obtained from:
+</p>
+
+\[
+l' = Fx
+\]
+
+<p>As a guideline to make this report a bit more cohesive, here are all the steps of the Eight-Point Algorithm:</p>
+
+<ol>
+  <li>Collect a set of corresponding points (>8) in the two images.</li>
+  <li>Form the matrix \(A\) using the epipolar constraint.</li>
+  <li>Solve the linear system \(Af = 0\) using least squares for the entries of the Fundamental matrix \(F\).</li>
+  <li>Reshape f into F.</li>
+  <li>Enforce the rank-2 constraint on F by setting the smallest singular value to zero.</li>
+  <li>Return the Fundamental matrix \(F\).</li>
+</ol>
 
 <h3>1.1 Implementation of Linear Least Squares</h3>
 
-<p>Similar to when we estimated homographies in Assignment 3, we're trying to fill the entries in the 3x3 Fundamental matrix by using known values of (x,y) and (x',y'). A 3x3 matrix has 9 entries,
+<p>Similar to when we estimated homographies in Assignment 3, we're trying to fill the entries in the 3x3 Fundamental matrix by using known values of \((x,y)\) and \((x',y')\). A 3x3 matrix has 9 entries,
   and since the Fundamental matrix is invariant to scale, we can set one of the entries to 1, and now we have 8 degrees of freedom. This means we need at least 8 pairs of corresponding points to 
-  solve for the Fundamental matrix. This essentially describes the Eight-Point Algorithm. In practice, we can usually identify far more than eight matching features, so we can use least squares to 
-  solve for the Fundamental matrix. The more points we have, the better our estimate of the Fundamental matrix will be. 
+  solve for the Fundamental matrix. This essentially describes the Eight-Point Algorithm. In practice, we can usually identify far more than eight matching features, so we can use least squares. 
+  The more points we have, the better our estimate of the Fundamental matrix will be. 
 </p>
 
-<p>First, let's describe our points (x, y) and (x', y') in homogenous coordinates, if you recall from Assignment 3, this step allows us to account for translation, which otherwise would be a non-linear 
-  transformation.</p>
+<p> First, let's describe our points \((x,y)\) and \((x',y')\) in homogeneous coordinates. As discussed in Assignment 3, this allows translations to be represented using matrix multiplication.
+The Fundamental Matrix contains nine unknown entries:
+</p>
 
-<p> Let x = [x, y, 1]^T and x' = [x', y', 1]^T. </p>
+\[F= \begin{bmatrix}
+f_{11} & f_{12} & f_{13}\\
+f_{21} & f_{22} & f_{23}\\
+f_{31} & f_{32} & f_{33}
+\end{bmatrix} \]
 
-<p> Then, x'^T * F * x = 0 expands to xx'f_11 + xy'f_12 + x'yf_13 + yx'f_21 + yy'f_22 + y'yf_23 + x''f_31 + y''f_32 + f_33 = 0. </p>
+<p>
+Substituting the homogeneous coordinates into the epipolar constraint \({x'}^{T} F x = 0\) gives:
+</p>
+
+\[xx' f_{11}+xy' f_{12}+x' f_{13}+yx' f_{21}+yy' f_{22}+y' f_{23}+x f_{31}+y f_{32}+f_{33}=0\]
 
 <p> Notice that the equation is linear in the entries of the Fundamental matrix F. </p>
 
+<p>Each point correspondence contributes one linear equation. Stacking all correspondences together produces:</p>
 
+\[Af = 0\]
+
+<p>where</p>
+
+\[f=\begin{bmatrix}f_{11} &f_{12} &f_{13} &f_{21} &f_{22} &f_{23} &f_{31} &f_{32} &f_{33}\end{bmatrix}^{T}\]
+
+<p>and</p>
+
+\[
+A=
+\begin{bmatrix}
+x_1x'_1 & x_1y'_1 & x_1 &
+y_1x'_1 & y_1y'_1 & y_1 &
+x'_1 & y'_1 & 1 \\
+x_2x'_2 & x_2y'_2 & x_2 &
+y_2x'_2 & y_2y'_2 & y_2 &
+x'_2 & y'_2 & 1 \\
+\vdots & \vdots & \vdots &
+\vdots & \vdots & \vdots &
+\vdots & \vdots & \vdots \\
+x_nx'_n & x_ny'_n & x_n &
+y_nx'_n & y_ny'_n & y_n &
+x'_n & y'_n & 1
+\end{bmatrix}
+\]
+
+<p> In theory, \(Af = 0\) has an exact solution, however in practice, point correspondences contain noise, and feature matches are not perfect, and the equations
+  contradict each other slightly. So we'll reframe the problem to finding \(min ||Af||\) subject to \(||f|| = 1\). This is now a least square problem, and can be 
+  solved using Singular Value Decomposition (SVD). The solution is the right singular vector of A corresponding to the smallest singular value.
+</p>
+
+<h4>Singular Value Decomposition (SVD)</h4>
+
+<p> Alas, we've been pulled back into the depths of undergrad linear algebra... when I first heard those words in this class, my soul was transported to a time when I 
+  more desperate and naive. As a refresher (for myself mostly), the SVD of a matrix A is the decomposition of A into three matrices U, \(\Sigma\), and V such that \(A = U \Sigma V^{T}\). The columns of U are the 
+  left singular vectors (the eigenvectors of \(A A^T\)), the columns of V are the right singular vectors (eigenvectors of \(A^T A\)), and \(\Sigma\) is a diagonal matrix containing 
+  the singular values in descending order. In one sentence, singular points quantify the importance of each component in the decomposition. The solution to our problem is the right 
+  singular vector corresponding to the smallest singular value, which is the last column of V. This is because the smallest singular value corresponds to the direction in which A has 
+  the least effect, and we want to find a vector f that minimizes \(||Af||\).
+</p>
+
+<p> Of course, things aren't always so straightforward... Because the process of using a Fundamental matrix maps a point in 2-dimensional space to a point on effectively one-dimension, the epipolar line
+  in the second image, the Fundamental matrix is rank 2. This means that the last singular value of F is zero, and we need to enforce this constraint. To do this, we can set the last singular value to zero and 
+  recompute F using the remaining singular values and vectors. This is done by performing SVD on F, setting the last singular value to zero, and then recomputing F as \(F = U \Sigma V^{T}\).
+</p>
 
 <figure>
-  <img src="out/building/sources.jpg" alt="The three UW campus building source photos" loading="lazy">
-  <figcaption>UW campus building set: source photos (images 0&ndash;2, left to right).</figcaption>
+  <img src="data/set1/image1.jpg" height = 500 loading="lazy">
+   <img src="data/set1/image2.jpg" height = 500 loading="lazy">
+  <figcaption>Two images of the same scene from different prespectives that are parallel, set1 dataset</figcaption>
 </figure>
 
-<h3>A.2 Recovering Homographies</h3>
-
-<p> A homography is a transformation that maps points (x,y) in one image to points (x',y') in another image that correspond to the same feature.
-  This essentially becomes a linear algebra problem, where we want to solve P' = H * P, where P and P' are the homogeneous coordinates of the points 
-  in the two images, and H is the homography matrix. The homography matrix has 8 degrees of freedom, so we need at least 4 pairs of corresponding 
-  points to solve for it. In two images of the same scene, we can usually identify far more than four matching features, so we can use least
-  squares to solve for the homography matrix. The more points we have, the better our estimate of the homography will be. 
+<p>So we've got two images here of the same scene from different prespectives. Using these images and their corresponding matched points, we compute the minimum of \(||Af||\) subject to \(||f|| = 1\), and then use
+  the SVD of A and the last column of V to compute the Fundamental matrix F.   
 </p>
 
-<p> In this first part, the points are selected manually by clicking on matching features in both images; in Part 2, we'll find them automatically using 
-  feature detection algorithms. Once we have the corresponding points, we can use them to compute the homography matrix.
+<pre> --- SVD of F (before rank-2 constraint) ---
+Reshaped into F (before rank-2 constraint):
+ [[ 0.000005 -0.000007 -0.001504]
+ [-0.000006 -0.       -0.011361]
+ [-0.003523  0.014145  0.999828]]
+  U:
+ [[-0.001504 -0.081389  0.996681]
+ [-0.01136  -0.996617 -0.081401]
+ [ 0.999934 -0.011444  0.000575]]
+Singular values (s1, s2, s3): [1.       0.000167 0.000004]
+V^T:
+ [[-0.003523  0.014144  0.999894]
+ [ 0.275064 -0.961316  0.014568]
+ [ 0.961419  0.275086 -0.000504]]
+det(F) = 5.980685960033649e-10  rank = 3</pre>
+
+<p>Looking at the singular values, which are 1, 0.000167, and 0.000004, we can see that the third singular value is very small, but still non-zero. So we set this value to zero, and recompute F.</p>
+
+<pre> --- F (after rank-2 constraint) ---
+Reshaped into F (after rank-2 constraint):
+ [[ 0.000002 -0.000008 -0.001504]
+ [-0.000006 -0.       -0.011361]
+ [-0.003523  0.014145  0.999828]]
+det(F) after = 1.458904817096295e-25  rank = 2
+det(F) = 5.980685960033649e-10  rank = 3</pre>
+
+<p>So now we have our Fundamental matrix! You can see the implementation details below.</p>
+
+<details class="code-block"><summary>Show least squares implementation</summary><pre><code>
+def lls_eight_point_alg(points1, points2):
+    n = points1.shape[0]
+    # Each correspondence gives one row of W such that W f = 0, f = vec(F) (row-major)
+    # p2^T F p1 = 0  ->  [u2*u1, u2*v1, u2, v2*u1, v2*v1, v2, u1, v1, 1] . f = 0
+    W = np.zeros((n, 9))
+    for i in range(n):
+        u1, v1, _ = points1[i]
+        u2, v2, _ = points2[i]
+        W[i] = [u2*u1, u2*v1, u2, v2*u1, v2*v1, v2, u1, v1, 1]
+ 
+    # Least-squares solution of W f = 0, ||f|| = 1: right singular vector of the
+    # smallest singular value
+    _, _, Vt = np.linalg.svd(W)
+    F = Vt[-1].reshape(3, 3)
+ 
+    # Enforce rank 2: zero out the smallest singular value of F
+    U, S, Vt = np.linalg.svd(F)
+    S[2] = 0
+    return U @ np.diag(S) @ Vt
+</code></pre></details>
+
+<h3>1.2 Normalized Eight Point Algorithm</h3>
+
+<p> So our algorithm as is can be unstable, as singular points are based on pixel values, which can be large. So let's normalize before solving for F. 
+  This is done by translating the points so that their centroid is at the origin, and scaling them so that the mean distance from the origin is sqrt(2). 
+  This improves numerical conditioning of the least-squares problem and leads to more stable Fundamental matrix estimates. Then at the end, we denormalize
+  the Fundamental matrix by applying the inverse of the normalization transforms to F.
 </p>
 
-<p>Before solving for the homography, Hartley normalization is applied to the point coordinates. This is when the coordinates are translated so their centroid is at 
-  the origin and scaled so that the mean distance from the origin is sqrt(2). This improves numerical conditioning of the least-squares problem and leads to
-  more stable homography estimates. 
+<pre>  F (LLS), unit Frobenius norm:
+ [[ 0.000002 -0.000008 -0.001504]
+ [-0.000006 -0.       -0.011361]
+ [-0.003523  0.014145  0.999828]]
+F (Normalized), unit Frobenius norm:
+ [[ 0.000004 -0.000036  0.000603]
+ [-0.000034 -0.000002 -0.043915]
+ [-0.005848  0.060309  0.997196]]
+</pre>
+
+<figure>
+  <img src="out\set1_epipolar_lls.png" height="300">
+  <img src="out\set1_epipolar_normalized.png" height="300">
+  <figcaption>Eight-point algorithm results for the set1 dataset. Top two images are of just the lls, and the bottom two are the normalized results.</figcaption>
+</figure>
+
+<details class="code-block"><summary>Show normalized eight-point implementation</summary><pre><code>
+def normalized_eight_point_alg(points1, points2):
+    def normalization_matrix(pts):
+        # Translate centroid to origin, scale so mean distance from origin is sqrt(2)
+        mean = pts[:, :2].mean(axis=0)
+        d = np.sqrt(((pts[:, :2] - mean) ** 2).sum(axis=1)).mean()
+        s = np.sqrt(2) / d
+        return np.array([[s, 0, -s * mean[0]],
+                         [0, s, -s * mean[1]],
+                         [0, 0, 1]])
+ 
+    T1 = normalization_matrix(points1)
+    T2 = normalization_matrix(points2)
+    q1 = (T1 @ points1.T).T
+    q2 = (T2 @ points2.T).T
+ 
+    F_hat = lls_eight_point_alg(q1, q2)  # includes rank-2 enforcement
+ 
+    # Undo normalization: q2^T F_hat q1 = p2^T (T2^T F_hat T1) p1
+    return T2.T @ F_hat @ T1
+</code></pre></details>
+
+<h3>1.3 Epipolar Lines and Determining the Accuracy of the Fundamental Matrix</h3>
+
+<p> Now that we have our fundamental matrix, we can determine how good it is, plus determine the epipolar lines.
+  Given,
 </p>
+
+\[l' = Fx\]
+
+<p>and line</p>
+
+\[ax + by + c = 0\]
+
+<p>and distance from point to a line</p>
+
+\[d = \frac{|ax_0 + by_0 + c|}{\sqrt{a^2 + b^2}}\]
+
+<p>Average over all matches. The smaller the average, the better the fundamental matrix. The distance to the lines in image 1 the normalized 
+  eight point algorithm is 0.890573, and the distance to the lines in image 2 is 0.828668.
+</p>
+
+<details class="code-block"><summary>Show distance to epipolar lines implementation</summary><pre><code>
+def plot_epipolar_lines_on_images(points1, points2, im1, im2, F):
+
+    def plot_epipolar_lines_on_image(points1, points2, im, F):
+        im_height = im.shape[0]
+        im_width = im.shape[1]
+        lines = F.T.dot(points2.T)
+        plt.imshow(im, cmap='gray')
+        for line in lines.T:
+            a,b,c = line
+            xs = [1, im.shape[1]-1]
+            ys = [(-c-a*x)/b for x in xs]
+            plt.plot(xs, ys, 'r')
+        for i in range(points1.shape[0]):
+            x,y,_ = points1[i]
+            plt.plot(x, y, '*b')
+        plt.axis([0, im_width, im_height, 0])
+
+</code></pre></details>
+
+
+
+
+
+
 
 <figure>
 <video width="640" height="360" controls>
