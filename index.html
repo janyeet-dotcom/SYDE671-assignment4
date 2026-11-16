@@ -330,161 +330,124 @@ def plot_epipolar_lines_on_images(points1, points2, im1, im2, F):
 
 </code></pre></details>
 
+<h2 id="part2">Part Two: Matching Homographies for Image Rectification</h2>
 
+<p> Now that we have the fundamental matrix, we can use it to find the homographies for image rectification. Why rectify? Well, we know that the match for a point in image 1 lies on the epipolar line in image 2. If we warp the epipolar lines 
+  to be horizontal, we can simplify the stereo matching process, effectively reducing the 2D search to a 1D search along the horizontal axis. This makes the stereo matching more simple, fast, and also less error prone.
+</p>
 
+<p> In epipolar geometry, the epipole is where all the epipolar lines intersect, and we need to do two things with it. First is to find it. What we're trying to accomplish have all the epipolar lines aligned horizontally, supposedly parallel to 
+  one another, so that means moving the epipole to infinity.</p>
 
+<p> To find the epipole, we use the properties \(F^T e' = 0 \) and \(F e = 0 \), to determine that the epipole is the null-space vector of \( F \). In singular value decomposition, \(F = UDV^T \), the last singular vector gives us the null space. 
+  For image 2, we're performing the SVD on \(F^T\). For image set 1, the epipoles are below.</p>
 
-
-
-<figure>
-<video width="640" height="360" controls>
-  <source src="out/Manual_click.mp4" type="video/mp4">
-</video>
-<figcaption>Screen recording of the manual point-clicking tool: click a feature in one image, then the same feature in the other.</figcaption>
-</figure>
-
-<p><code>computeH(im1_pts, im2_pts)</code> builds the linear system below from the clicked correspondences and solves it by least squares. 
-    A point (x,y) in image 1 maps to (x',y') in image 2 with</p>
-    
-<pre>x' = (a x + b y + c) / (g x + h y + 1)
-y' = (d x + e y + f) / (g x + h y + 1)
-
-=>  [ x  y  1  0  0  0  -x x'  -y x' ] h = x'
-    [ 0  0  0  x  y  1  -x y'  -y y' ] h = y'      h = [a b c d e f g h]^T</pre>
-    
-<p>Each correspondence adds two rows to A (n points: A is 2n x 8). The code for <code>build_system</code> and <code>computeH</code> is in <a href="#app-a">Appendix A</a>.</p>
-
-<h4>UW Campus Building</h4>
-
-<h5>pair 0 &rarr; 1: 8 points, mean reprojection error 1.82 px (max 3.76)</h5>
-
-<figure>
-  <img src="out/building/corr_0_1.jpg" alt="Building, pair 0 → 1: the 8 clicked correspondences (red, numbered) on image 0 (left) and image 1 (right)" loading="lazy">
-  <figcaption>Building, pair 0 &rarr; 1: the 8 clicked correspondences (red, numbered) on image 0 (left) and image 1 (right).</figcaption>
-</figure>
-
-<pre>H =
-[[    5.69424     0.32215 -3698.39606]
- [    1.36470     6.51179 -2429.53489]
- [    0.00208     0.00262     1.00000]]
+<pre>
+e1 [-1.30078593e+03 -1.42661359e+02  1.00000000e+00]
+e2 [1.65422409e+03 4.54263026e+01 1.00000000e+00]
 </pre>
 
-<h5>pair 1 &rarr; 2: 8 points, mean reprojection error 0.53 px (max 1.00)</h5>
+<details class="code-block"><summary>Show compute epipole implementation</summary><pre><code></code>
+def compute_epipole(F):
+    # The epipole e in image 2 satisfies e^T F = 0, i.e. F^T e = 0, so e spans the
+    # null space of F^T. With F^T = U S V^T, that is the right singular vector of
+    # the smallest singular value (last row of V^T).
+    _, _, Vt = np.linalg.svd(F.T)
+    e = Vt[-1]
+    return e / e[2]  # homogeneous coordinates [x y 1]
 
-<figure>
-  <img src="out/building/corr_1_2.jpg" alt="Building, pair 1 → 2: the 8 clicked correspondences on image 1 (left) and image 2 (right)" loading="lazy">
-  <figcaption>Building, pair 1 &rarr; 2: the 8 clicked correspondences on image 1 (left) and image 2 (right).</figcaption>
-</figure>
-
-<pre>H =
-[[   1.80183   -0.12155 -819.35712]
- [   0.40230    1.47668 -353.06232]
- [   0.00058   -0.00004    1.00000]]</pre>
-
-<details class="code-block">
-<summary>Show full system of equations + H for every pair</summary>
-<pre><code>
-==== pair 0 -> 1  (8 correspondences, 16 equations, 8 unknowns) ====
-im1_pts (x, y):
-[[850.4 589.0]
- [890.0 591.7]
- [856.7 719.2]
- [900.7 719.2]
- [933.1 593.4]
- [969.0 595.2]
- [940.3 717.4]
- [978.0 715.6]]
-im2_pts (x, y):
-[[309.1 594.5]
- [355.8 599.9]
- [301.9 734.6]
- [350.4 730.1]
- [400.7 606.2]
- [440.2 602.6]
- [390.8 731.0]
- [427.7 726.6]]
-
-linear system A h = b, h = [a b c d e f g h]^T (raw pixel coordinates):
-A =
-[[    850.4     589.0       1.0       0.0       0.0       0.0 -262858.6 -182059.9]
- [      0.0       0.0       0.0     850.4     589.0       1.0 -505562.8 -350160.5]
- [    890.0     591.7       1.0       0.0       0.0       0.0 -316662.0 -210526.9]
- [      0.0       0.0       0.0     890.0     591.7       1.0 -533911.0 -354960.8]
- [    856.7     719.2       1.0       0.0       0.0       0.0 -258637.7 -217126.5]
- [      0.0       0.0       0.0     856.7     719.2       1.0 -629331.8 -528324.3]
- [    900.7     719.2       1.0       0.0       0.0       0.0 -315605.3 -252007.7]
- [      0.0       0.0       0.0     900.7     719.2       1.0 -657601.1 -525087.9]
- [    933.1     593.4       1.0       0.0       0.0       0.0 -373893.2 -237775.4]
- [      0.0       0.0       0.0     933.1     593.4       1.0 -565645.2 -359719.1]
- [    969.0     595.2       1.0       0.0       0.0       0.0 -426553.8 -262007.0]
- [      0.0       0.0       0.0     969.0     595.2       1.0 -583919.4 -358667.5]
- [    940.3     717.4       1.0       0.0       0.0       0.0 -367469.2 -280359.9]
- [      0.0       0.0       0.0     940.3     717.4       1.0 -687359.3 -524419.4]
- [    978.0     715.6       1.0       0.0       0.0       0.0 -418290.6 -306062.1]
- [      0.0       0.0       0.0     978.0     715.6       1.0 -710614.8 -519955.0]]
-b = [309.1 594.5 355.8 599.9 301.9 734.6 350.4 730.1 400.7 606.2 440.2 602.6 390.8 731.0 427.7 726.6]
-
-recovered H (p2 ~ H p1):
-[[    5.694241     0.322148 -3698.396063]
- [    1.364704     6.511791 -2429.534893]
- [    0.002079     0.002618     1.000000]]
-reprojection error: mean 1.82 px, max 3.76 px
-
-==== pair 1 -> 2  (8 correspondences, 16 equations, 8 unknowns) ====
-im1_pts (x, y):
-[[ 526.2  623.5]
- [ 542.9  626.6]
- [ 523.1  721.6]
- [ 542.4  719.0]
- [ 989.5  648.9]
- [ 989.8  657.8]
- [1044.3  651.4]
- [1045.1  660.9]]
-im2_pts (x, y):
-[[ 41.3 607.3]
- [ 63.9 611.2]
- [ 28.2 721.4]
- [ 54.2 719.1]
- [570.4 646.2]
- [569.9 656.1]
- [620.3 649.1]
- [621.2 658.9]]
-
-linear system A h = b, h = [a b c d e f g h]^T (raw pixel coordinates):
-A =
-[[    526.2     623.5       1.0       0.0       0.0       0.0  -21732.1  -25750.5]
- [      0.0       0.0       0.0     526.2     623.5       1.0 -319561.3 -378651.5]
- [    542.9     626.6       1.0       0.0       0.0       0.0  -34691.3  -40039.7]
- [      0.0       0.0       0.0     542.9     626.6       1.0 -331820.5 -382977.9]
- [    523.1     721.6       1.0       0.0       0.0       0.0  -14751.4  -20349.1]
- [      0.0       0.0       0.0     523.1     721.6       1.0 -377364.3 -520562.2]
- [    542.4     719.0       1.0       0.0       0.0       0.0  -29398.1  -38969.8]
- [      0.0       0.0       0.0     542.4     719.0       1.0 -390039.8 -517032.9]
- [    989.5     648.9       1.0       0.0       0.0       0.0 -564410.8 -370132.6]
- [      0.0       0.0       0.0     989.5     648.9       1.0 -639414.9 -419319.2]
- [    989.8     657.8       1.0       0.0       0.0       0.0 -564087.0 -374880.2]
- [      0.0       0.0       0.0     989.8     657.8       1.0 -649407.8 -431582.6]
- [   1044.3     651.4       1.0       0.0       0.0       0.0 -647779.3 -404063.4]
- [      0.0       0.0       0.0    1044.3     651.4       1.0 -677855.1 -422823.7]
- [   1045.1     660.9       1.0       0.0       0.0       0.0 -649216.1 -410551.1]
- [      0.0       0.0       0.0    1045.1     660.9       1.0 -688616.4 -435467.0]]
-b = [ 41.3 607.3  63.9 611.2  28.2 721.4  54.2 719.1 570.4 646.2 569.9 656.1 620.3 649.1 621.2 658.9]
-
-recovered H (p2 ~ H p1):
-[[   1.801829   -0.121551 -819.357116]
- [   0.402297    1.476682 -353.062319]
- [   0.000581   -0.000035    1.000000]]
-reprojection error: mean 0.53 px, max 1.00 px
 </code></pre></details>
 
-<p> For each adjacent image pair, a homography was estimated using manually selected
-correspondences. The homography parameters were obtained by solving the linear
-system A h = b using least-squares on Hartley-normalized coordinates.
+<p>Now we have the location of the epipoles, we can move onto constructing our homography matrix. Our goal is to make all the epipolar lines horizontal through a series of transformations. So first, we'd want a translation matrix, which will move the image
+  centre to the origin, this will make rotations later easier. We'd also want a rotation matrix to get our epipoles from slanted to horizontal. Next, we'd want a projective warp matrix, which will map our epipole to infinity. Lastly, we apply \(T^-1\) at the 
+very end to bring our coordinate system to where it was before it was rotated.</p>
+
+\[H = T^-1 GRT\]
+
+<details class="code-block"><summary>Show compute homography implementation</summary><pre><code></code>
+def compute_H(e, im):
+    height, width = im.shape[0], im.shape[1]
+    e = e / e[2]
+
+    # 1. Translation: move the image centre to the origin
+    T = np.array([[1, 0, -width / 2.0],
+                  [0, 1, -height / 2.0],
+                  [0, 0, 1]])
+    e_t = T @ e                      # translated epipole (e1, e2, 1)
+    e1, e2 = e_t[0], e_t[1]
+
+    # 2. Rotation: put the translated epipole on the x-axis at (f, 0, 1)
+    alpha = 1.0 if e1 >= 0 else -1.0
+    norm = np.sqrt(e1 ** 2 + e2 ** 2)
+    R = np.array([[ alpha * e1 / norm, alpha * e2 / norm, 0],
+                  [-alpha * e2 / norm, alpha * e1 / norm, 0],
+                  [0, 0, 1]])
+    f = (R @ e_t)[0]
+
+    # 3. Send (f, 0, 1) to (f, 0, 0): a point at infinity on the horizontal axis
+    G = np.array([[1, 0, 0],
+                  [0, 1, 0],
+                  [-1.0 / f, 0, 1]])
+
+    # 4. Undo the translation
+    return np.linalg.inv(T) @ G @ R @ T
+</code></pre></details>
+
+<p>The last thing that we'll do is finding a matching pair of homographies \(H_1\) and \(H_2\). Up to this point, we've computed the homographies independently for image 1 and image 2. However, our homographies are supposed to
+map a point from one image to another point on the other, so there is an additional step we'll have to do to correct for that. In my implementation, I've kept \(H_2\) as is and changed \(H_1\) to match. We're looking for an \(H_1\)
+that minimizes the sum of square differences between the corresponding points of the images, or \( \sum_i \| H_1 p_i - H_2 p'_i \|^2 \). In this assignment, without explanation, I can tell you that our new \(H_1 = H_A H_2 M\),
+where \( F = [e_2]_\times M \), so \[ M = [e_2]_\times F + e_2 v^T, \qquad v^T = [1\ 1\ 1], \] where \( [e_2]_\times \) is the cross-product matrix of \( e_2 \). and
 </p>
 
-<p>The reprojection error reported for each pair is the distance, in pixels, between H applied to a clicked point in image 1 and the point 
-  I clicked for it in image 2, averaged (or maximized) over all correspondences. It measures how well a single homography explains all of my clicks, 
-  so it reflects both click accuracy and how well the planar / fixed-centre-of-projection assumption holds. It should be read with the point count in mind: 
-  five points (as in two of the Waterloo Park pairs in <a href="#app-b">Appendix B</a>) give 10 equations for 8 unknowns, so the fit is barely overdetermined and a low error is partly guaranteed. Pairs with more, well-spread 
-  points give a more trustworthy number.
-</p>
+ \[ H_A = \begin{bmatrix} a_1 & a_2 & a_3 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \end{bmatrix}. \]
+
+ <p>with \((a_1, a_2, a_3)\) are elements of a certain vector \(a\). \(H_A\) has the form it does by Hartley's rectification method. Notice that we're only changing the x-coordinates of the matrix, and not the y. This is because \(H_2\) already
+  has fixed epipolar geometry, and we're not looking to ruin the rectification, only to slide or stretch the points horizontally.
+ </p>
+
+ <p>Because the y-coordinates already agree, this reduces to making the x-coordinates agree, which is the linear least-squares problem \( W a = b \) with </p>
+  
+  \[ W = \begin{bmatrix} \hat{x}_1 & \hat{y}_1 & 1 \\ \vdots & \vdots & \vdots \\ \hat{x}_n & \hat{y}_n & 1 \end{bmatrix}, \qquad
+  b = \begin{bmatrix} \hat{x}'_1 \\ \vdots \\ \hat{x}'_n \end{bmatrix}. \] 
+  
+  <p>Solve \(a = (W^T W)^-1 A^T b \) to get us \((a_1, a_2, a_3)\).</p>
+
+<details class="code-block"><summary>Show matching homographies implementation</summary><pre><code></code>
+def compute_matching_homographies(e2, F, im2, points1, points2):
+    e2 = e2 / e2[2]
+    H2 = compute_H(e2, im2)
+
+    # Cross-product matrix [e]_x, so that [e]_x v = e x v
+    e_x = np.array([[0, -e2[2], e2[1]],
+                    [e2[2], 0, -e2[0]],
+                    [-e2[1], e2[0], 0]])
+    v = np.array([[1.0, 1.0, 1.0]])
+    M = e_x @ F + np.outer(e2, v)
+
+    # H0 = H2 M maps image 1 into the rectified frame (up to the free shear H_A)
+    H0 = H2 @ M
+    p1_hat = (H0 @ points1.T).T
+    p1_hat /= p1_hat[:, 2:3]
+    p2_hat = (H2 @ points2.T).T
+    p2_hat /= p2_hat[:, 2:3]
+
+    # Least squares W a = b: choose (a1, a2, a3) so that x-coordinates line up
+    W = p1_hat                       # rows [x1_hat, y1_hat, 1]
+    b = p2_hat[:, 0]                 # x2_hat
+    a, _, _, _ = np.linalg.lstsq(W, b, rcond=None)
+
+    H_A = np.array([[a[0], a[1], a[2]],
+                    [0, 1, 0],
+                    [0, 0, 1]])
+    H1 = H_A @ H0
+    return H1, H2
+</code></pre></details>
+
+
+<figure>
+  <img src="out\set1_compute_epipole.png" height="300">
+  <figcaption>Images from set1 after computing matching homographies.</figcaption>
+</figure>
+
+
+<h2 id="part3">Part Three: The Factorization Method</h2>

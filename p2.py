@@ -13,8 +13,12 @@ Returns:
     epipole - the homogenous coordinates [x y 1] of the epipole in the image
 '''
 def compute_epipole(F):
-    # TODO: Implement this method!
-    raise Exception('Not Implemented Error')
+    # The epipole e in image 2 satisfies e^T F = 0, i.e. F^T e = 0, so e spans the
+    # null space of F^T. With F^T = U S V^T, that is the right singular vector of
+    # the smallest singular value (last row of V^T).
+    _, _, Vt = np.linalg.svd(F.T)
+    e = Vt[-1]
+    return e / e[2]  # homogeneous coordinates [x y 1]
 
 '''
 COMPUTE_H computes a homography to map an epipole to infinity along the horizontal axis 
@@ -25,8 +29,31 @@ Returns:
     H - homography matrix
 '''
 def compute_H(e, im):
-    # TODO: Implement this method!
-    raise Exception('Not Implemented Error')
+    height, width = im.shape[0], im.shape[1]
+    e = e / e[2]
+
+    # 1. Translation: move the image centre to the origin
+    T = np.array([[1, 0, -width / 2.0],
+                  [0, 1, -height / 2.0],
+                  [0, 0, 1]])
+    e_t = T @ e                      # translated epipole (e1, e2, 1)
+    e1, e2 = e_t[0], e_t[1]
+
+    # 2. Rotation: put the translated epipole on the x-axis at (f, 0, 1)
+    alpha = 1.0 if e1 >= 0 else -1.0
+    norm = np.sqrt(e1 ** 2 + e2 ** 2)
+    R = np.array([[ alpha * e1 / norm, alpha * e2 / norm, 0],
+                  [-alpha * e2 / norm, alpha * e1 / norm, 0],
+                  [0, 0, 1]])
+    f = (R @ e_t)[0]
+
+    # 3. Send (f, 0, 1) to (f, 0, 0): a point at infinity on the horizontal axis
+    G = np.array([[1, 0, 0],
+                  [0, 1, 0],
+                  [-1.0 / f, 0, 1]])
+
+    # 4. Undo the translation
+    return np.linalg.inv(T) @ G @ R @ T
 
 '''
 COMPUTE_MATCHING_HOMOGRAPHIES determines homographies H1 and H2 such that they
@@ -42,8 +69,34 @@ Returns:
     H2 - the homography associated with the second image
 '''
 def compute_matching_homographies(e2, F, im2, points1, points2):
-    # TODO: Implement this method!
-    raise Exception('Not Implemented Error')
+    e2 = e2 / e2[2]
+    H2 = compute_H(e2, im2)
+
+    # Cross-product matrix [e]_x, so that [e]_x v = e x v
+    e_x = np.array([[0, -e2[2], e2[1]],
+                    [e2[2], 0, -e2[0]],
+                    [-e2[1], e2[0], 0]])
+    v = np.array([[1.0, 1.0, 1.0]])
+    M = e_x @ F + np.outer(e2, v)
+
+    # H0 = H2 M maps image 1 into the rectified frame (up to the free shear H_A)
+    H0 = H2 @ M
+    p1_hat = (H0 @ points1.T).T
+    p1_hat /= p1_hat[:, 2:3]
+    p2_hat = (H2 @ points2.T).T
+    p2_hat /= p2_hat[:, 2:3]
+
+    # Least squares W a = b: choose (a1, a2, a3) so that x-coordinates line up
+    W = p1_hat                       # rows [x1_hat, y1_hat, 1]
+    b = p2_hat[:, 0]                 # x2_hat
+    a, _, _, _ = np.linalg.lstsq(W, b, rcond=None)
+
+    H_A = np.array([[a[0], a[1], a[2]],
+                    [0, 1, 0],
+                    [0, 0, 1]])
+    H1 = H_A @ H0
+    return H1, H2
+
 
 if __name__ == '__main__':
     # Read in the data
