@@ -17,9 +17,25 @@ Returns:
     structure - the structure matrix
     motion - the motion matrix
 '''
+
 def factorization_method(points_im1, points_im2):
-    # TODO: Implement this method!
-    raise Exception('Not Implemented Error')
+    # Measurement matrix D (2M x N): x and y coordinates of every point in each image.
+    # Here M = 2 cameras, so D is 4 x N.
+    D = np.vstack((points_im1[:, 0], points_im1[:, 1],
+                   points_im2[:, 0], points_im2[:, 1]))
+
+    # Center each row at the centroid of its points. This removes the translation of
+    # the affine cameras, leaving D = (motion) * (structure) with rank 3.
+    D = D - D.mean(axis=1, keepdims=True)
+
+    # SVD of the centered measurement matrix
+    U, S, Vt = np.linalg.svd(D, full_matrices=False)
+    print("Singular values of D:", S)
+
+    # Keep only the top 3 singular values (rank-3 factorization D ~ M S)
+    motion = U[:, :3] @ np.diag(S[:3])    # 2M x 3 : camera (motion) matrix
+    structure = Vt[:3, :]                 # 3 x N  : 3D structure
+    return structure, motion
 
 if __name__ == '__main__':
     for im_set in ['data/set1', 'data/set1_subset']:
