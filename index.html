@@ -83,8 +83,7 @@ window.MathJax = {
 Assignment 3 explored image stitching from a series of perspective images and we created these cheeky little panorama images!
 Assignment 4 aims to explore the "opposite" problem, what if we shot a series of images of the same scene from different perspectives? How can we find the relationship
 between the images? What points correspond to the same feature in both images? How are the cameras related? What if the objects are 3-dimensional and actually have depth?
-(***Cue mind blown noises.***) So along the same lines as Assignment 3, let's start by assuming we have the same object in image 1 and in image 2. Then the Fundamental matrix
-is a 3x3 matrix that relates the two images of the same scene. For matching points \(x\) in image 1 and \(x'\) in image 2, the fundamental matrix \(F\) satisfies:
+<b><i>(Cue mind-blown noises.)</i></b> So along the same lines as Assignment 3, let's start by assuming we have the same object in image 1 and in image 2. Then the fundamental matrix is a \(3 \times 3\) matrix that relates the two images of the same scene. For matching points \(x\) in image 1 and \(x'\) in image 2, the fundamental matrix \(F\) satisfies:
 </p>
 
 \[
@@ -104,24 +103,24 @@ l' = Fx
 <p>As a guideline to make this report a bit more cohesive, here are all the steps of the Eight-Point Algorithm:</p>
 
 <ol>
-  <li>Collect a set of corresponding points (>8) in the two images.</li>
+  <li>Collect a set of corresponding points (at least 8) in the two images.</li>
   <li>Form the matrix \(A\) using the epipolar constraint.</li>
-  <li>Solve the linear system \(Af = 0\) using least squares for the entries of the Fundamental matrix \(F\).</li>
-  <li>Reshape f into F.</li>
-  <li>Enforce the rank-2 constraint on F by setting the smallest singular value to zero.</li>
-  <li>Return the Fundamental matrix \(F\).</li>
+  <li>Solve the linear system \(Af = 0\) using least squares for the entries of the fundamental matrix \(F\).</li>
+  <li>Reshape \(f\) into \(F\).</li>
+  <li>Enforce the rank-2 constraint on \(F\) by setting the smallest singular value to zero.</li>
+  <li>Return the fundamental matrix \(F\).</li>
 </ol>
 
 <h3>1.1 Implementation of Linear Least Squares</h3>
 
-<p>Similar to when we estimated homographies in Assignment 3, we're trying to fill the entries in the 3x3 Fundamental matrix by using known values of \((x,y)\) and \((x',y')\). A 3x3 matrix has 9 entries,
-  and since the Fundamental matrix is invariant to scale, we can set one of the entries to 1, and now we have 8 degrees of freedom. This means we need at least 8 pairs of corresponding points to 
-  solve for the Fundamental matrix. This essentially describes the Eight-Point Algorithm. In practice, we can usually identify far more than eight matching features, so we can use least squares. 
-  The more points we have, the better our estimate of the Fundamental matrix will be. 
+<p>Similar to when we estimated homographies in Assignment 3, we're trying to fill in the entries of the \(3 \times 3\) fundamental matrix by using known values of \((x,y)\) and \((x',y')\). A \(3 \times 3\) matrix has 9 entries,
+  and since the fundamental matrix is only defined up to scale, we can fix one of the entries to 1 (or, equivalently, fix \(\|f\| = 1\)), which leaves 8 unknowns. This means we need at least 8 pairs of corresponding points to
+  solve for the fundamental matrix. This essentially describes the eight-point algorithm. (The rank-2 constraint removes one more degree of freedom, so \(F\) really has 7, but the linear method does not use that constraint.)
+  In practice, we can usually identify far more than eight matching features, so we can use least squares. The more points we have, the better our estimate of \(F\) will be.
 </p>
 
 <p> First, let's describe our points \((x,y)\) and \((x',y')\) in homogeneous coordinates. As discussed in Assignment 3, this allows translations to be represented using matrix multiplication.
-The Fundamental Matrix contains nine unknown entries:
+The fundamental matrix contains nine unknown entries:
 </p>
 
 \[F= \begin{bmatrix}
@@ -136,7 +135,7 @@ Substituting the homogeneous coordinates into the epipolar constraint \({x'}^{T}
 
 \[x'x f_{11}+x'y f_{12}+x' f_{13}+y'x f_{21}+y'y f_{22}+y' f_{23}+x f_{31}+y f_{32}+f_{33}=0\]
 
-<p> Notice that the equation is linear in the entries of the Fundamental matrix F. </p>
+<p> Notice that the equation is linear in the entries of the fundamental matrix \(F\). </p>
 
 <p>Each point correspondence contributes one linear equation. Stacking all correspondences together produces:</p>
 
@@ -146,7 +145,7 @@ Substituting the homogeneous coordinates into the epipolar constraint \({x'}^{T}
 
 \[f=\begin{bmatrix}f_{11} &f_{12} &f_{13} &f_{21} &f_{22} &f_{23} &f_{31} &f_{32} &f_{33}\end{bmatrix}^{T}\]
 
-<p>and</p>
+<p>and \(A\) is the \(N \times 9\) matrix</p>
 
 \[
 A=
@@ -160,39 +159,40 @@ x_2 & y_2 & 1 \\
 \vdots & \vdots & \vdots &
 \vdots & \vdots & \vdots &
 \vdots & \vdots & \vdots \\
-x_nx'_n & y_nx'_n & x'_n &
-x_ny'_n & y_ny'_n & y'_n &
-x_n & y_n & 1
+x_Nx'_N & y_Nx'_N & x'_N &
+x_Ny'_N & y_Ny'_N & y'_N &
+x_N & y_N & 1
 \end{bmatrix}
 \]
 
-<p> In theory, \(Af = 0\) has an exact solution, however in practice, point correspondences contain noise, and feature matches are not perfect, and the equations
-  contradict each other slightly. So we'll reframe the problem to finding \(min ||Af||\) subject to \(||f|| = 1\). This is now a least square problem, and can be 
-  solved using Singular Value Decomposition (SVD). The solution is the right singular vector of A corresponding to the smallest singular value.
+<p> In theory, \(Af = 0\) has an exact solution; however, in practice point correspondences contain noise and feature matches are not perfect, so the equations
+  contradict each other slightly. We therefore reframe the problem as minimizing \(\|Af\|\) subject to \(\|f\| = 1\). This is now a least-squares problem and can be
+  solved using the singular value decomposition (SVD). The solution is the right singular vector of \(A\) corresponding to the smallest singular value.
 </p>
 
 <h4>Singular Value Decomposition (SVD)</h4>
 
-<p> Alas, we've been pulled back into the depths of undergrad linear algebra... when I first heard those words in this class, my soul was transported to a time when I was more desperate and naive. As a refresher (for myself mostly), the SVD of a matrix A is the decomposition of A into three matrices U, \(\Sigma\), and V such that \(A = U \Sigma V^{T}\). The columns of U are the 
-  left singular vectors (the eigenvectors of \(A A^T\)), the columns of V are the right singular vectors (eigenvectors of \(A^T A\)), and \(\Sigma\) is a diagonal matrix containing 
-  the singular values in descending order. In one sentence, singular values quantify the importance of each component in the decomposition. The solution to our problem is the right 
-  singular vector corresponding to the smallest singular value, which is the last column of V. This is because the smallest singular value corresponds to the direction in which A has 
-  the least effect, and we want to find a vector f that minimizes \(||Af||\).
+<p> Alas, we've been pulled back into the depths of undergrad linear algebra... when I first heard those words in this class, my soul was transported to a time when I was more desperate and naive.
+  As a refresher (for myself mostly), the SVD of a matrix \(A\) is the decomposition of \(A\) into three matrices \(U\), \(\Sigma\), and \(V\) such that \(A = U \Sigma V^{T}\). The columns of \(U\) are the
+  left singular vectors (the eigenvectors of \(A A^T\)), the columns of \(V\) are the right singular vectors (the eigenvectors of \(A^T A\)), and \(\Sigma\) is a diagonal matrix containing
+  the singular values in descending order. In one sentence, the singular values quantify the importance of each component in the decomposition. The solution to our problem is the right
+  singular vector corresponding to the smallest singular value, which is the last column of \(V\) (the last row of \(V^T\)). This is because the smallest singular value corresponds to the direction in which \(A\) has
+  the least effect, and we want to find a vector \(f\) that minimizes \(\|Af\|\).
 </p>
 
-<p> Of course, things aren't always so straightforward... Because the process of using a Fundamental matrix maps a point in 2-dimensional space to a point on effectively one-dimension, the epipolar line
-  in the second image, the Fundamental matrix is rank 2. This means that the last singular value of F is zero, and we need to enforce this constraint. To do this, we can set the last singular value to zero and 
-  recompute F using the remaining singular values and vectors. This is done by performing SVD on F, setting the last singular value to zero, and then recomputing F as \(F = U \Sigma V^{T}\).
+<p> Of course, things aren't always so straightforward... The fundamental matrix maps a point in one image to a line in the other image (a one-dimensional set of points rather than a two-dimensional one), so \(F\) has rank 2.
+  This means that the last singular value of \(F\) is zero, and we need to enforce this constraint. To do this, we perform an SVD on \(F = U \Sigma V^{T}\), set the last singular value to zero, and then
+  recompute \(F = U \Sigma' V^{T}\), where \(\Sigma'\) is \(\Sigma\) with its last singular value set to zero.
 </p>
 
 <figure>
-  <img src="data/set1/image1.jpg" height = 500 loading="lazy">
-   <img src="data/set1/image2.jpg" height = 500 loading="lazy">
-  <figcaption>Two images of the same scene from different perspectives that are parallel, set1 dataset</figcaption>
+  <img src="data/set1/image1.jpg" height="500" loading="lazy">
+   <img src="data/set1/image2.jpg" height="500" loading="lazy">
+  <figcaption>Two images of the same scene taken from different viewpoints, set1 dataset</figcaption>
 </figure>
 
-<p>So we've got two images here of the same scene from different perspectives. Using these images and their corresponding matched points, we compute the minimum of \(||Af||\) subject to \(||f|| = 1\), and then use
-  the SVD of A and the last column of V to compute the Fundamental matrix F.   
+<p>So we've got two images here of the same scene from different perspectives. Using these images and their corresponding matched points, we minimize \(\|Af\|\) subject to \(\|f\| = 1\), and then use
+  the SVD of \(A\) and the last column of \(V\) to compute the fundamental matrix \(F\).
 </p>
 
 <pre> --- SVD of F (before rank-2 constraint) ---
@@ -211,7 +211,8 @@ V^T:
  [ 0.961419  0.275086 -0.000504]]
 det(F) = 5.980685960033649e-10  rank = 3</pre>
 
-<p>Looking at the singular values, which are 1, 0.000167, and 0.000004, we can see that the third singular value is very small, but still non-zero. So we set this value to zero, and recompute F.</p>
+<p>Looking at the singular values, which are \(s_1 = 1\), \(s_2 = 1.67 \times 10^{-4}\), and \(s_3 = 3.6 \times 10^{-6}\), we can see that the third singular value is very small, but still non-zero (\(\det F \approx 6 \times 10^{-10}\), so \(F\) has rank 3).
+  So we set \(s_3\) to zero and recompute \(F\), which gives a matrix with \(\det F \approx 0\) and rank 2.</p>
 
 <pre> --- F (after rank-2 constraint) ---
 Reshaped into F (after rank-2 constraint):
@@ -220,7 +221,7 @@ Reshaped into F (after rank-2 constraint):
  [-3.5231e-03  1.4145e-02  9.9983e-01]]
 det(F) after = 1.458904817096295e-25  rank = 2</pre>
 
-<p>So now we have our Fundamental matrix! You can see the implementation details below.</p>
+<p>So now we have our fundamental matrix! You can see the implementation details below.</p>
 
 <details class="code-block"><summary>Show least squares implementation</summary><pre><code>
 def lls_eight_point_alg(points1, points2):
@@ -246,10 +247,10 @@ def lls_eight_point_alg(points1, points2):
 
 <h3>1.2 Normalized Eight Point Algorithm</h3>
 
-<p> So our algorithm as is can be unstable, because the entries of \(A\) are products of pixel coordinates, which can be large (on the order of \(10^5\)) next to the constant 1 in the last column of \(A\). So let's normalize before solving for F. 
-  This is done by translating the points so that their centroid is at the origin, and scaling them so that the mean distance from the origin is sqrt(2). 
-  This improves numerical conditioning of the least-squares problem and leads to more stable Fundamental matrix estimates. Then at the end, we denormalize
-  the Fundamental matrix using \(F = T_2^{T} \hat{F} T_1\), where \(\hat{F}\) is the matrix estimated on the normalized points and \(T_1, T_2\) are the normalization transforms of images 1 and 2. This follows from \({q'}^{T}\hat{F}q = {p'}^{T}(T_2^{T}\hat{F}T_1)p\) with \(q = T_1 p\) and \(q' = T_2 p'\).
+<p> So our algorithm as is can be unstable, because the entries of \(A\) are products of pixel coordinates, which can be large (on the order of \(10^5\)) next to the constant 1 in the last column of \(A\). So let's normalize before solving for \(F\). 
+  This is done by translating the points so that their centroid is at the origin, and scaling them so that the mean distance from the origin is \(\sqrt{2}\). 
+  This improves numerical conditioning of the least-squares problem and leads to more stable fundamental matrix estimates. Then at the end, we denormalize
+  the fundamental matrix using \(F = T_2^{T} \hat{F} T_1\), where \(\hat{F}\) is the matrix estimated on the normalized points and \(T_1, T_2\) are the normalization transforms of images 1 and 2. This follows from \({q'}^{T}\hat{F}q = {p'}^{T}(T_2^{T}\hat{F}T_1)p\) with \(q = T_1 p\) and \(q' = T_2 p'\).
 </p>
 
 <pre>  F (LLS), unit Frobenius norm:
@@ -310,7 +311,7 @@ def normalized_eight_point_alg(points1, points2):
   and then compute the distance from the matching point \(x_i = (x_0, y_0, 1)\) to that line with the formula above. The distance in image 2 is computed the same way with the roles swapped (\(F^{T}\) is passed in place of \(F\)).
   Average over all matches. The smaller the average, the better the fundamental matrix.</p>
 
-<p>In code, <code>compute_distance_to_epipolar_lines()</code> is fully vectorized. <code>F.T @ points2.T</code> gives all the lines \((a, b, c)\) at once (a 3 x N array). Because the points are in homogeneous coordinates \((x, y, 1)\),
+<p>In code, <code>compute_distance_to_epipolar_lines()</code> is fully vectorized. <code>F.T @ points2.T</code> gives all the lines \((a, b, c)\) at once (a \(3 \times N\) array). Because the points are in homogeneous coordinates \((x, y, 1)\),
   the numerator \(|ax_0 + by_0 + c|\) is the absolute value of the column-wise dot product of the lines with <code>points1.T</code>. The denominator is \(\sqrt{a^2 + b^2}\), and the function returns the mean of the ratio.
   For set1, the normalized eight-point algorithm gives an average distance of 0.890573 pixels in image 1 and 0.828668 pixels in image 2. The unnormalized algorithm gives 28.03 and 25.16 pixels, so normalization brings the error down by a factor of about 30.</p>
 
@@ -355,14 +356,15 @@ F (Normalized), unit Frobenius norm:
 <h2 id="part2">Part Two: Matching Homographies for Image Rectification</h2>
 
 <p> Now that we have the fundamental matrix, we can use it to find the homographies for image rectification. Why rectify? Well, we know that the match for a point in image 1 lies on the epipolar line in image 2. If we warp the epipolar lines 
-  to be horizontal, we can simplify the stereo matching process, effectively reducing the 2D search to a 1D search along the horizontal axis. This makes the stereo matching more simple, fast, and also less error prone.
+  to be horizontal, we can simplify the stereo matching process, effectively reducing the 2D search to a 1D search along the horizontal axis. This makes stereo matching simpler, faster, and less error-prone.
 </p>
 
-<p> In epipolar geometry, the epipole is where all the epipolar lines intersect, and we need to do two things with it. First is to find it. What we're trying to accomplish have all the epipolar lines aligned horizontally, supposedly parallel to 
-  one another, so that means moving the epipole to infinity.</p>
+<p> In epipolar geometry, the epipole is the point where all the epipolar lines intersect, and we need to do two things with it. The first is to find it. The second comes from our goal: we want all the epipolar lines to be horizontal,
+  and therefore parallel to one another, which means moving the epipole to infinity.</p>
 
-<p> To find the epipole, we use the properties \(F^T e' = 0 \) and \(F e = 0 \), to determine that the epipole is the null-space vector of \( F \). In singular value decomposition, \(F = UDV^T \), the last singular vector gives us the null space. 
-  For image 2, we're performing the SVD on \(F^T\). For image set 1, the epipoles are below.</p>
+<p> To find the epipoles, we use the properties \(F e_1 = 0\) and \(F^T e_2 = 0\) (where \(e_1\) is the epipole in image 1 and \(e_2\) is the epipole in image 2), which tell us that each epipole is a null-space vector of \(F\) or \(F^T\).
+  In the singular value decomposition \(F = U \Sigma V^T\), the right singular vector corresponding to the smallest singular value (the last row of \(V^T\)) gives us the null space.
+  For image 2, we perform the SVD on \(F^T\). For image set 1, the epipoles are below.</p>
 
 <pre>
 e1 [-1.30078593e+03 -1.42661359e+02  1.00000000e+00]
@@ -380,11 +382,26 @@ def compute_epipole(F):
 
 </code></pre></details>
 
-<p>Now we have the location of the epipoles, we can move onto constructing our homography matrix. Our goal is to make all the epipolar lines horizontal through a series of transformations. So first, we'd want a translation matrix, which will move the image
-  centre to the origin, this will make rotations later easier. We'd also want a rotation matrix to get our epipoles from slanted to horizontal. Next, we'd want a projective warp matrix, which will map our epipole to infinity. Lastly, we apply \(T^{-1}\) at the 
-very end to bring our coordinate system to where it was before it was rotated.</p>
+<p>Now that we have the locations of the epipoles, we can move on to constructing our homography. Our goal is to make all the epipolar lines horizontal through a series of transformations. First, we want a translation matrix \(T\), which moves the image
+  centre to the origin; this makes the rotation easier. Next, we want a rotation matrix \(R\), which takes the epipole from its slanted position onto the horizontal axis. Then we want a projective warp \(G\), which maps the epipole to infinity.
+  Lastly, we apply \(T^{-1}\) at the very end to move our coordinate system back to where it was before it was translated. Explicitly, for an image of width \(w\) and height \(h\),</p>
 
-\[H = T^{-1} GRT\]
+\[ T = \begin{bmatrix} 1 & 0 & -\frac{w}{2} \\ 0 & 1 & -\frac{h}{2} \\ 0 & 0 & 1 \end{bmatrix}. \]
+
+<p>If the translated epipole is \(Te = (\tilde{e}_1, \tilde{e}_2, 1)^T\), the rotation is</p>
+
+\[ R = \begin{bmatrix}
+\alpha \dfrac{\tilde{e}_1}{\sqrt{\tilde{e}_1^2 + \tilde{e}_2^2}} & \alpha \dfrac{\tilde{e}_2}{\sqrt{\tilde{e}_1^2 + \tilde{e}_2^2}} & 0 \\
+-\alpha \dfrac{\tilde{e}_2}{\sqrt{\tilde{e}_1^2 + \tilde{e}_2^2}} & \alpha \dfrac{\tilde{e}_1}{\sqrt{\tilde{e}_1^2 + \tilde{e}_2^2}} & 0 \\
+0 & 0 & 1 \end{bmatrix}, \]
+
+<p>where \(\alpha = 1\) if \(\tilde{e}_1 \geq 0\) and \(\alpha = -1\) otherwise. After the rotation, the epipole sits at \((f, 0, 1)^T\) on the horizontal axis, and the projective warp that sends it to \((f, 0, 0)^T\) is</p>
+
+\[ G = \begin{bmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ -\frac{1}{f} & 0 & 1 \end{bmatrix}. \]
+
+<p>Putting them together gives</p>
+
+\[H = T^{-1} G R T.\]
 
 <details class="code-block"><summary>Show compute homography implementation</summary><pre><code>
 def compute_H(e, im):
@@ -415,11 +432,19 @@ def compute_H(e, im):
     return np.linalg.inv(T) @ G @ R @ T
 </code></pre></details>
 
-<p>The last thing that we'll do is finding a matching pair of homographies \(H_1\) and \(H_2\). Up to this point, we've computed the homographies independently for image 1 and image 2. However, our homographies are supposed to
-map a point from one image to another point on the other, so there is an additional step we'll have to do to correct for that. In my implementation, I've kept \(H_2\) as is and changed \(H_1\) to match. We're looking for an \(H_1\)
-that minimizes the sum of square differences between the corresponding points of the images, or \( \sum_i \| H_1 p_i - H_2 p'_i \|^2 \). In this assignment, without explanation, I can tell you that our new \(H_1 = H_A H_2 M\),
-where \( F = [e_2]_\times M \), so \[ M = [e_2]_\times F + e_2 v^T, \qquad v^T = [1\ 1\ 1], \] where \( [e_2]_\times \) is the cross-product matrix of \( e_2 \). and
+<p>The last thing that we'll do is find a matching pair of homographies \(H_1\) and \(H_2\). Up to this point, we've only computed a homography for image 2. However, the two homographies need to be consistent with one another so that matching points
+end up in the same row of both rectified images, so there is an additional step to correct for that. In my implementation, I've kept \(H_2\) as is and changed \(H_1\) to match. We're looking for an \(H_1\)
+that minimizes the sum of squared differences between the corresponding points of the images, or \( \sum_i \| H_1 p_i - H_2 p'_i \|^2 \). In this assignment, without derivation, I can tell you that \(H_1 = H_A H_2 M\),
+where \(M\) satisfies \(F = [e_2]_\times M\) and is computed as
 </p>
+
+\[ M = [e_2]_\times F + e_2 v^T, \qquad v^T = [1\ 1\ 1], \]
+
+<p>where \([e_2]_\times\) is the cross-product matrix of \(e_2\). For a vector \(u = (u_1, u_2, u_3)^T\),</p>
+
+\[ [u]_\times = \begin{bmatrix} 0 & -u_3 & u_2 \\ u_3 & 0 & -u_1 \\ -u_2 & u_1 & 0 \end{bmatrix}, \]
+
+<p>and \(H_A\) has the form</p>
 
  \[ H_A = \begin{bmatrix} 
  a_1 & a_2 & a_3 \\ 
@@ -427,20 +452,20 @@ where \( F = [e_2]_\times M \), so \[ M = [e_2]_\times F + e_2 v^T, \qquad v^T =
  0 & 0 & 1 
  \end{bmatrix}. \]
 
- <p>with \((a_1, a_2, a_3)\) are elements of a certain vector \(a\). \(H_A\) has the form it does by Hartley's rectification method. Notice that we're only changing the x-coordinates of the matrix, and not the y. This is because \(H_2\) already
-  makes the epipolar lines horizontal, and we're not looking to ruin the rectification, only to slide or stretch the points horizontally.
+ <p>where \((a_1, a_2, a_3)\) are the elements of a vector \(a\) that we still have to solve for. This form of \(H_A\) comes from Hartley's rectification method. Notice that we're only changing the \(x\)-coordinates of the points, and not the \(y\)-coordinates.
+  This is because \(H_2\) already makes the epipolar lines horizontal, and we don't want to ruin the rectification, only to slide or stretch the points horizontally.
  </p>
 
  <p>The hatted quantities in the least-squares problem are the points after the partial warp. Let \(H_0 = H_2 M\), so that \(H_1 = H_A H_0\). Then
   \(\hat{p}_i = H_0 p_i\) and \(\hat{p}'_i = H_2 p'_i\), each divided by its third coordinate, and \((\hat{x}_i, \hat{y}_i)\) and \((\hat{x}'_i, \hat{y}'_i)\) are their coordinates. \(M\) is a homography that is consistent
   with \(F\) (in the sense that \(F = [e_2]_\times M\)), and it already lines up the rows of the two images, but it is not unique, which is why \(H_A\) is needed.</p>
 
- <p>Because the y-coordinates already agree, this reduces to making the x-coordinates agree, which is the linear least-squares problem \( W a = b \) with </p>
+ <p>Because the \(y\)-coordinates already agree, this reduces to making the \(x\)-coordinates agree, which is the linear least-squares problem \( W a = b \) with </p>
   
-  \[ W = \begin{bmatrix} \hat{x}_1 & \hat{y}_1 & 1 \\ \vdots & \vdots & \vdots \\ \hat{x}_n & \hat{y}_n & 1 \end{bmatrix}, \qquad
-  b = \begin{bmatrix} \hat{x}'_1 \\ \vdots \\ \hat{x}'_n \end{bmatrix}. \] 
+  \[ W = \begin{bmatrix} \hat{x}_1 & \hat{y}_1 & 1 \\ \vdots & \vdots & \vdots \\ \hat{x}_N & \hat{y}_N & 1 \end{bmatrix}, \qquad
+  b = \begin{bmatrix} \hat{x}'_1 \\ \vdots \\ \hat{x}'_N \end{bmatrix}. \] 
   
-  <p>Solve \(a = (W^T W)^{-1} W^T b \) to get us \((a_1, a_2, a_3)\).</p>
+  <p>Solve \(a = (W^T W)^{-1} W^T b\) to get \(a = (a_1, a_2, a_3)^T\).</p>
 
 <details class="code-block"><summary>Show matching homographies implementation</summary><pre><code>
 def compute_matching_homographies(e2, F, im2, points1, points2):
@@ -487,22 +512,23 @@ def compute_matching_homographies(e2, F, im2, points1, points2):
 
 <h2 id="part3">Part Three: The Factorization Method</h2>
 
-<p>In case you thought the assignment topic so far has been click bait, I'm here to tell you that it is not. We can do 3D reconstruction! The Tomasi-Kanade Factorization Method takes multiple images of an object, 
-  and reconstructs its 3D shape and camera motion under a certain set of assumptions. 
+<p>In case you thought the assignment topic so far has been clickbait, I'm here to tell you that it is not. We can do 3D reconstruction! The Tomasi-Kanade factorization method takes multiple images of an object
+  and reconstructs its 3D shape and the camera motion under a certain set of assumptions.
 </p>
 
-<p>Suppose we track N points through F images. For every image, we'll have a (x,y) for feature. Then, we can construct an observation matrix, D, with size 2F x N. Since we have two images, the matrix is 4 x N. </p>
+<p>Suppose we track \(N\) points through \(K\) images. For every image, we have an \((x, y)\) location for each feature. We can then construct an observation matrix, \(D\), of size \(2K \times N\). Since we have two images (\(K = 2\)), the matrix is \(4 \times N\).</p>
 
-\[ D = \begin{bmatrix} 
-x_11 & x_12 & \cdots & x_1p \\ 
-y_11 & y_12 & \cdots & y_1p \\
-x_21 & x_22 & \cdots & x_2p \\ 
-y_21 & y_22 & \cdots & y_2p \\
-\end{bmatrix}. \] 
+\[ D = \begin{bmatrix}
+x_{11} & x_{12} & \cdots & x_{1N} \\
+y_{11} & y_{12} & \cdots & y_{1N} \\
+x_{21} & x_{22} & \cdots & x_{2N} \\
+y_{21} & y_{22} & \cdots & y_{2N}
+\end{bmatrix}. \]
 
-<p>Each pair of rows correspond to ome camera image and each column is one tracked feature point. Then, we centre each row by subtracting its mean, the removes the camera translation (also simplifying the matrix), so D 
-  becomes motion and structure. The Tomasi-Kanade factorization method assumes an orthographic (affine) camera model. So instead of perspective, the model assumes a linear dependence on each dimension, essentially that object 
-  is relatively far away compared to its depth variation. This allows the motion and structure components to be separable into matricies so that when multiplied, we get D. In \(D = M S\), S contains all the 3D points,
+<p>Here \((x_{ij}, y_{ij})\) is the location of feature \(j\) in image \(i\). Each pair of rows corresponds to one camera image, and each column is one tracked feature point. Then, we centre each row by subtracting its mean, which removes the camera translation
+  (also simplifying the matrix), so that \(D\) becomes the product of a motion matrix and a structure matrix. The Tomasi-Kanade factorization method assumes an orthographic (affine) camera model. Instead of perspective projection, the model
+  assumes that the image coordinates depend linearly on the 3D coordinates, which is a good approximation when the object is far from the camera relative to its depth variation. This lets us factor \(D\) into a motion matrix \(M\) and a structure
+  matrix \(S\), so that \(D = M S\). Here, \(S\) contains all the 3D points,
 </p>
 
 \[S = \begin{bmatrix}
@@ -511,49 +537,77 @@ Y_1 & Y_2 & \cdots & Y_N \\
 Z_1 & Z_2 & \cdots & Z_N
 \end{bmatrix}\]
 
-<p>The size of S is 3 x P, each column corresponding to one reconstructed 3D point. M is the motion matrix, and is in the form,</p>
+<p>The size of \(S\) is \(3 \times N\), with each column corresponding to one reconstructed 3D point \((X_j, Y_j, Z_j)^T\). \(M\) is the motion matrix, and has the form</p>
 
-\[S = \begin{bmatrix}
-r_11 & r_12 & r_13 \\
-r_21 & r_22 & r_23 \\
-\cdots \\
-\end{bmatrix}\]
+\[M = \begin{bmatrix}
+r_{11} & r_{12} & r_{13} \\
+r_{21} & r_{22} & r_{23} \\
+\vdots & \vdots & \vdots \\
+r_{2K,1} & r_{2K,2} & r_{2K,3}
+\end{bmatrix}.\]
 
-<p>The size of M is 2F x 3, each pair of rows describes one camera's viewing direction.</p>
+<p>The size of \(M\) is \(2K \times 3\) (here \(4 \times 3\)), and each pair of rows describes one camera's viewing directions (its image \(x\)-axis and \(y\)-axis).</p>
 
-<p>One of the properties of the observation matrix is that it's rank 3. This will be important later when we do singular value decomposition! One way to think 
-  about it is that in \(D = M S\), M only has three columns, so the rank of D is 3 or less. Another way to think about it is that we only have three independent variables
-  in 3D reconstruction, X, Y, and Z, thus we should only have three linearly independent statements. 
+<p>One of the properties of the (centred) observation matrix is that its rank is at most 3. This will be important later when we do singular value decomposition! One way to think
+  about it is that in \(D = M S\), \(M\) only has three columns, so the rank of \(D\) is 3 or less. Another way to think about it is that we only have three independent variables
+  in 3D reconstruction, \(X\), \(Y\), and \(Z\), thus we should only have three linearly independent statements.
 </p>
 
-<p>After completing SVD on the set1 images I get 959.5852216, 540.47613178, 184.43174791, and 27.9151956 as singular values. In theory, the fourth singular value should be zero,
-  but in practice, it is not, as real cameras are not perfectly affine, plus matched points are noisy and pixel-quantized. So now, we truncate the components of the SVD to get a good 
-  approximation of D back. (My bad for choosing "D" to be the observation matrix, it overlaps with the "D" in SVD...)
+<h4>Singular values of set1</h4>
+
+<p>After taking the SVD of the centred \(D\) for the set1 images, \(D = U \Sigma V^T\), I get singular values of 959.585, 540.476, 184.432, and 27.915. (I write the diagonal matrix of singular values as \(\Sigma\) to avoid
+  a clash with the observation matrix \(D\).) There are four non-zero singular values because \(D\) has only four rows, so it has at most four singular values, and the fourth is not exactly zero in practice: real cameras are not perfectly affine,
+  and the matched points are noisy and pixel-quantized. In the idealized version, with exactly affine cameras and perfect noise-free matches, \(D = M S\) would have rank 3, so we would expect exactly three non-zero singular values
+  (and the fourth would be zero). So now, we truncate the SVD to its top three components to get a good approximation of \(D\) back:
 </p>
 
-\[D \approx U_3 D_3 V_3^T\]
+\[D \approx U_3 \Sigma_3 V_3^T\]
 
-<p>To recover the M and S with the approixmated D, we split the singular values, \(D = D_3^(1/2) D_3^(1/2)\), and then define \(M = U_3 D_3^(1/2)\) and \(S = D_3^(1/2)V_3^(T)\).</p>
+<p>where \(U_3\) holds the first three columns of \(U\), \(\Sigma_3\) is the \(3 \times 3\) diagonal matrix of the top three singular values, and \(V_3^T\) holds the first three rows of \(V^T\). To recover \(M\) and \(S\) from the approximated \(D\),
+  my code uses \(M = U_3 \Sigma_3\) and \(S = V_3^T\). (Splitting the singular values evenly, with \(M = U_3 \Sigma_3^{1/2}\) and \(S = \Sigma_3^{1/2} V_3^T\), is equally valid, because the two choices differ only by an invertible matrix; see the next paragraph.)</p>
 
-<p>This reconstruction is not going to be unique, if we have any invertible matrix A, we can say that \(D = (MA)(A^-1S)\). There can be many pairs of (M, S) that produce the same D. The best
-  linear map that I'm able to construct compared to the ground truth provided to us fits well, sitting at around 9% relative error. The rest of the differences come from rotation, scale, and noise.
+<p>In summary, my implementation does the following:</p>
+
+<ol>
+  <li>Stack the \(x\) and \(y\) coordinates of every matched point in the two images into the \(4 \times N\) matrix \(D\).</li>
+  <li>Subtract the mean of each row from that row (centring).</li>
+  <li>Compute the SVD of the centred \(D\).</li>
+  <li>Keep the top three singular values and vectors, and return \(M = U_3 \Sigma_3\) (motion) and \(S = V_3^T\) (structure).</li>
+</ol>
+
+<h4>Comparison with the ground truth</h4>
+
+<p>This reconstruction is not unique: for any invertible \(3 \times 3\) matrix \(A\), we have \(D = (MA)(A^{-1}S)\), so there are many pairs \((M, S)\) that produce the same \(D\). The SVD therefore gives the structure only up to such a transform.
+  This is why my reconstruction has the same overall shape as the ground truth but is rotated and at a different scale (compare the axis ranges in the figure below, about \(\pm 0.4\) versus 0 to 25). The best
+  linear map that I'm able to construct from my reconstruction to the ground truth fits well, leaving around 9% relative error. The rest of the difference comes from noise, from the affine approximation, and from the fact that I did not enforce any
+  metric constraints (such as orthonormal rows of \(M\)) that would remove a possible leftover shear.
 </p>
 
 <figure>
-  <img src="out\p3_set1.png" height="300">
-  <figcaption>Reconstructed image using the Tomasi-Kanade Factorization method compared to ground truth</figcaption>
+  <img src="out/p3_set1.png" height="300">
+  <figcaption>Left: 3D structure reconstructed with the Tomasi-Kanade factorization method. Right: the ground truth, set1 dataset.</figcaption>
 </figure>
 
-<p>I repeated the process on the set1 image, except with a subset of the points, and the reconstruction is shown below.</p>
+<h4>Using a subset of the points</h4>
+
+<p>I repeated the process on the <code>set1_subset</code> data, which uses only 18 of the points, and the reconstruction is shown below.</p>
 
 <figure>
-  <img src="out\p3_set1_subset.png" height="300">
-  <figcaption>Reconstructed image using a subset of the points using the Tomasi-Kanade Factorization method compared to ground truth</figcaption>
+  <img src="out/p3_set1_subset.png" height="300">
+  <figcaption>Left: 3D structure reconstructed with the Tomasi-Kanade factorization method using a subset of the points. Right: the ground truth, <code>set1_subset</code> dataset.</figcaption>
 </figure>
 
-<p>If you feel as if the reconstruction looks off, you're right! This is because the 18 points are almost coplanar. Their singular values are 264.54396508, 210.06072009, 7.21921783, and 5.12857709.
-Compared to the first set, there is no obvious "fall-off" of singular values after the third, it seems like the fall-off occurs after the second versus the third (which is how I know the points are
-coplanar), and the third and fourth values are very similar. This makes the third dimension essentially noise.
+<table>
+  <caption>Singular values of the centred observation matrix \(D\) for the full set1 data and for the subset of points.</caption>
+  <tr><th>Dataset</th><th>Number of points</th><th>\(\sigma_1\)</th><th>\(\sigma_2\)</th><th>\(\sigma_3\)</th><th>\(\sigma_4\)</th></tr>
+  <tr><td>set1</td><td>37</td><td>959.585</td><td>540.476</td><td>184.432</td><td>27.915</td></tr>
+  <tr><td><code>set1_subset</code></td><td>18</td><td>264.544</td><td>210.061</td><td>7.219</td><td>5.129</td></tr>
+</table>
+
+<p>If you feel as if the reconstruction looks off, you're right! This is because the 18 points are almost coplanar. (Centring the ground-truth 3D points of the subset and taking their SVD gives singular values of about 17.3, 14.2, and 0.38, so
+  they really do lie close to a plane.) In the singular values above, set1 shows a clear fall-off after the third value (184.4 down to 27.9), as expected for a rank-3 structure plus noise. For the subset, the fall-off instead occurs after the second value
+  (210.1 down to 7.2), and the third and fourth values are very similar (7.2 and 5.1). This is how I know the points are close to coplanar: the points effectively span only two dimensions, so the third dimension is dominated by noise.
+  That is why the subset reconstruction is flattened and distorted and no longer resembles the ground truth. All of the singular values are also smaller for the subset, because there are fewer points.
 </p>
 
 <details class="code-block"><summary>Show Tomasi-Kanade Factorization implementation</summary><pre><code>
@@ -576,3 +630,5 @@ def factorization_method(points_im1, points_im2):
     structure = Vt[:3, :]                 # 3 x N  : 3D structure
     return structure, motion
 </code></pre></details>
+
+<h2 id="part4">Part Four: Triangulation in Structure From Motion</h2>
