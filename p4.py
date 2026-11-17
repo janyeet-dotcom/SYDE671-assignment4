@@ -293,3 +293,19 @@ if __name__ == '__main__':
     ax.view_init(-100, 90)
 
     plt.show()
+
+import plotly.graph_objects as go
+
+fig3d = go.Figure(data=[go.Scatter3d(
+    x=dense_structure[:, 0], y=dense_structure[:, 1], z=dense_structure[:, 2],
+    mode='markers',
+    marker=dict(size=1.5, color='black'),
+)])
+fig3d.update_layout(
+    scene=dict(xaxis=dict(range=[-5, 5]),
+               yaxis=dict(range=[-5, 5]),
+               zaxis=dict(range=[0, 10]),
+               aspectmode='cube'),
+    margin=dict(l=0, r=0, t=0, b=0),
+)
+fig3d.write_html('out/statue_3d.html', include_plotlyjs='cdn')
