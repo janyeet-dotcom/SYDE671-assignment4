@@ -20,6 +20,8 @@ h5 { max-width: 850px; margin: 1.3em auto 0.4em; box-sizing: border-box; }
 figcaption { font-size: 0.9em; color: #555; margin: 8px auto 0; max-width: 850px; text-align: left; }
 img { max-width: 100%; height: auto; }
 .center-image { display: block; margin: 0 auto; }
+.image-row { display: flex; flex-wrap: nowrap; gap: 6px; justify-content: center; align-items: flex-start; max-width: 1000px; margin: 0 auto; }
+.image-row img { flex: 1 1 0; min-width: 0; width: 100%; height: auto; }
 .image-container { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-start; margin: 1.2em 0; }
 .image-container figure { flex: 0 1 500px; }
 .image-container.small figure { flex-basis: 320px; }
@@ -77,10 +79,10 @@ window.MathJax = {
 </nav>
 
 <!-- ================= PART ONE ================= -->
-<h2 id="part1">Part One: Fundamental Matrix Estimation From Point Correspondences</h2>
+<h2 id="part1">Part One: Fundamental Matrix Estimation from Point Correspondences</h2>
 
 <p>
-Assignment 3 explored image stitching from a series of perspective images and we created these cheeky little panorama images!
+Assignment 3 explored image stitching from a series of perspective images and we created these cute little panorama images!
 Assignment 4 aims to explore the "opposite" problem, what if we shot a series of images of the same scene from different perspectives? How can we find the relationship
 between the images? What points correspond to the same feature in both images? How are the cameras related? What if the objects are 3-dimensional and actually have depth?
 <b><i>(Cue mind-blown noises.)</i></b> So along the same lines as Assignment 3, let's start by assuming we have the same object in image 1 and in image 2. Then the fundamental matrix is a \(3 \times 3\) matrix that relates the two images of the same scene. For matching points \(x\) in image 1 and \(x'\) in image 2, the fundamental matrix \(F\) satisfies:
@@ -90,8 +92,9 @@ between the images? What points correspond to the same feature in both images? H
 {x'}^{T} F x = 0
 \]
 
-<p>The fundamental matrix is unfortunately not magical, and does not tell us the exact correspondence between points in the two images. Instead, it tells us that for a point \(x\) in image 1, 
-  the corresponding point \(x'\) in image 2 must lie on an epipolar line. This line is obtained from:
+<p>The fundamental matrix is unfortunately not magical, and does not tell us the exact correspondence between points in the two images. Instead, it tells us that for a point \(x\) in image 1,
+  the corresponding point \(x'\) in image 2 must lie on an epipolar line. (Geometrically, \(x\) is the image of some unknown point along a ray through the first camera's centre. That whole ray is seen in the second image as a line,
+  and the true match must lie somewhere on it.) This line is obtained from:
 </p>
 
 \[
@@ -180,9 +183,10 @@ x_N & y_N & 1
   the least effect, and we want to find a vector \(f\) that minimizes \(\|Af\|\).
 </p>
 
-<p> Of course, things aren't always so straightforward... The fundamental matrix maps a point in one image to a line in the other image (a one-dimensional set of points rather than a two-dimensional one), so \(F\) has rank 2.
-  This means that the last singular value of \(F\) is zero, and we need to enforce this constraint. To do this, we perform an SVD on \(F = U \Sigma V^{T}\), set the last singular value to zero, and then
-  recompute \(F = U \Sigma' V^{T}\), where \(\Sigma'\) is \(\Sigma\) with its last singular value set to zero.
+<p> Of course, things aren't always so straightforward... The fundamental matrix has rank 2 because all the epipolar lines in an image intersect at a common point, the epipole \(e'\). Since \({e'}^{T} F x = 0\) for every \(x\), we have \(F^{T} e' = 0\),
+  so \(F\) has a one-dimensional null space, which forces \(\det F = 0\) and \(\operatorname{rank} F = 2\). This means that the last singular value of \(F\) is zero, and we need to enforce this constraint.
+  To do this, we perform an SVD on \(F = U \Sigma V^{T}\), set the last singular value to zero, and then recompute \(F = U \Sigma' V^{T}\), where \(\Sigma'\) is \(\Sigma\) with its
+  last singular value set to zero.
 </p>
 
 <figure>
@@ -192,7 +196,7 @@ x_N & y_N & 1
 </figure>
 
 <p>So we've got two images here of the same scene from different perspectives. Using these images and their corresponding matched points, we minimize \(\|Af\|\) subject to \(\|f\| = 1\), and then use
-  the SVD of \(A\) and the last column of \(V\) to compute the fundamental matrix \(F\).
+  the SVD of \(A\) and the last column of \(V\) (equivalently the last row of \(V^T\)) to compute the fundamental matrix \(F\).
 </p>
 
 <pre> --- SVD of F (before rank-2 constraint) ---
@@ -245,7 +249,7 @@ def lls_eight_point_alg(points1, points2):
     return U @ np.diag(S) @ Vt
 </code></pre></details>
 
-<h3>1.2 Normalized Eight Point Algorithm</h3>
+<h3>1.2 Normalized Eight-Point Algorithm</h3>
 
 <p> So our algorithm as is can be unstable, because the entries of \(A\) are products of pixel coordinates, which can be large (on the order of \(10^5\)) next to the constant 1 in the last column of \(A\). So let's normalize before solving for \(F\). 
   This is done by translating the points so that their centroid is at the origin, and scaling them so that the mean distance from the origin is \(\sqrt{2}\). 
@@ -334,7 +338,7 @@ def compute_distance_to_epipolar_lines(points1, points2, F):
 
 <h3>1.4 Results on set2</h3>
 
-<p>I ran the same two algorithms on the second image pair (set2). The fundamental matrices below are scaled to unit Frobenius norm. The distances are in the table above. As for set1, normalization reduces the
+<p>I ran the same two algorithms on the second image pair (set2). The fundamental matrices below are scaled to unit Frobenius norm. The distances are in the table above. As with set1, normalization reduces the
   average distance from several pixels to under one pixel.</p>
 
 <pre>F (LLS), unit Frobenius norm:
@@ -359,7 +363,9 @@ F (Normalized), unit Frobenius norm:
   to be horizontal, we can simplify the stereo matching process, effectively reducing the 2D search to a 1D search along the horizontal axis. This makes stereo matching simpler, faster, and less error-prone.
 </p>
 
-<p> In epipolar geometry, the epipole is the point where all the epipolar lines intersect, and we need to do two things with it. The first is to find it. The second comes from our goal: we want all the epipolar lines to be horizontal,
+<h3>2.1 Finding the Epipoles</h3>
+
+<p> In epipolar geometry, the epipole is the point where all the epipolar lines intersect (equivalently, the image of the other camera's centre), and we need to do two things with it. The first is to find it. The second comes from our goal: we want all the epipolar lines to be horizontal,
   and therefore parallel to one another, which means moving the epipole to infinity.</p>
 
 <p> To find the epipoles, we use the properties \(F e_1 = 0\) and \(F^T e_2 = 0\) (where \(e_1\) is the epipole in image 1 and \(e_2\) is the epipole in image 2), which tell us that each epipole is a null-space vector of \(F\) or \(F^T\).
@@ -382,7 +388,9 @@ def compute_epipole(F):
 
 </code></pre></details>
 
-<p>Now that we have the locations of the epipoles, we can move on to constructing our homography. Our goal is to make all the epipolar lines horizontal through a series of transformations. First, we want a translation matrix \(T\), which moves the image
+<h3>2.2 Constructing the Rectifying Homography</h3>
+
+<p>Now that we have the locations of the epipoles, we can move on to constructing our homography (a \(3 \times 3\) matrix that warps an image by acting on its points in homogeneous coordinates). Our goal is to make all the epipolar lines horizontal through a series of transformations. First, we want a translation matrix \(T\), which moves the image
   centre to the origin; this makes the rotation easier. Next, we want a rotation matrix \(R\), which takes the epipole from its slanted position onto the horizontal axis. Then we want a projective warp \(G\), which maps the epipole to infinity.
   Lastly, we apply \(T^{-1}\) at the very end to move our coordinate system back to where it was before it was translated. Explicitly, for an image of width \(w\) and height \(h\),</p>
 
@@ -399,7 +407,9 @@ def compute_epipole(F):
 
 \[ G = \begin{bmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ -\frac{1}{f} & 0 & 1 \end{bmatrix}. \]
 
-<p>Putting them together gives</p>
+<p>To see that \(G\) does what we want, note that \(G\,(f, 0, 1)^T = (f, 0, 0)^T\). A homogeneous point whose last coordinate is 0 is a point at infinity, and \((f, 0, 0)^T\) is the point at infinity in the direction of the \(x\)-axis.
+  Every epipolar line passes through the epipole, so after the warp they all pass through that point at infinity. Lines that meet at a point at infinity in the \(x\)-direction are parallel to the \(x\)-axis, so all the epipolar lines become horizontal.
+  Putting the four steps together gives</p>
 
 \[H = T^{-1} G R T.\]
 
@@ -432,6 +442,8 @@ def compute_H(e, im):
     return np.linalg.inv(T) @ G @ R @ T
 </code></pre></details>
 
+<h3>2.3 Finding a Matching Pair of Homographies</h3>
+
 <p>The last thing that we'll do is find a matching pair of homographies \(H_1\) and \(H_2\). Up to this point, we've only computed a homography for image 2. However, the two homographies need to be consistent with one another so that matching points
 end up in the same row of both rectified images, so there is an additional step to correct for that. In my implementation, I've kept \(H_2\) as is and changed \(H_1\) to match. We're looking for an \(H_1\)
 that minimizes the sum of squared differences between the corresponding points of the images, or \( \sum_i \| H_1 p_i - H_2 p'_i \|^2 \). In this assignment, without derivation, I can tell you that \(H_1 = H_A H_2 M\),
@@ -456,7 +468,7 @@ where \(M\) satisfies \(F = [e_2]_\times M\) and is computed as
   This is because \(H_2\) already makes the epipolar lines horizontal, and we don't want to ruin the rectification, only to slide or stretch the points horizontally.
  </p>
 
- <p>The hatted quantities in the least-squares problem are the points after the partial warp. Let \(H_0 = H_2 M\), so that \(H_1 = H_A H_0\). Then
+ <p>The hatted quantities are the points after applying the intermediate rectifying transformations. Let \(H_0 = H_2 M\), so that \(H_1 = H_A H_0\). Then
   \(\hat{p}_i = H_0 p_i\) and \(\hat{p}'_i = H_2 p'_i\), each divided by its third coordinate, and \((\hat{x}_i, \hat{y}_i)\) and \((\hat{x}'_i, \hat{y}'_i)\) are their coordinates. \(M\) is a homography that is consistent
   with \(F\) (in the sense that \(F = [e_2]_\times M\)), and it already lines up the rows of the two images, but it is not unique, which is why \(H_A\) is needed.</p>
 
@@ -499,6 +511,8 @@ def compute_matching_homographies(e2, F, im2, points1, points2):
 </code></pre></details>
 
 
+<h3>2.4 The Rectified Images</h3>
+
 <figure>
   <img src="out/set1_compute_epipole.png" height="300">
   <figcaption>Rectified image pair for set1, after applying \(H_1\) and \(H_2\). The red epipolar lines (matched points in blue) are now horizontal.</figcaption>
@@ -515,7 +529,12 @@ def compute_matching_homographies(e2, F, im2, points1, points2):
   and reconstructs its 3D shape and the camera motion under a certain set of assumptions.
 </p>
 
-<p>Suppose we track \(N\) points through \(K\) images. For every image, we have an \((x, y)\) location for each feature. We can then construct an observation matrix, \(D\), of size \(2K \times N\). Since we have two images (\(K = 2\)), the matrix is \(4 \times N\).</p>
+<h3>3.1 The Observation Matrix and the Affine Camera Model</h3>
+
+<p>Suppose we track \(N\) points through \(K\) images. For every image, we have an \((x, y)\) location for each feature. We can then construct an observation matrix, \(D\), of size \(2K \times N\). Since we have two images (\(K = 2\)), the matrix is \(4 \times N\).
+  Although Tomasi-Kanade factorization is often presented using many frames, two views are enough for a rank-3 factorization of the centred \(4 \times N\) measurement matrix. However, two views are not enough to pin down the true (metric) structure:
+  the recovered motion and structure are only determined up to an affine transformation, and some ambiguity remains even when the orthographic camera constraints are used (for example, a reflection in depth). A unique metric reconstruction generally needs at least three views.
+</p>
 
 \[ D = \begin{bmatrix}
 x_{11} & x_{12} & \cdots & x_{1N} \\
@@ -524,8 +543,7 @@ x_{21} & x_{22} & \cdots & x_{2N} \\
 y_{21} & y_{22} & \cdots & y_{2N}
 \end{bmatrix}. \]
 
-<p>Here \((x_{ij}, y_{ij})\) is the location of feature \(j\) in image \(i\). Each pair of rows corresponds to one camera image, and each column is one tracked feature point. Then, we centre each row by subtracting its mean, which removes the camera translation
-  (also simplifying the matrix), so that \(D\) becomes the product of a motion matrix and a structure matrix. The Tomasi-Kanade factorization method assumes an orthographic (affine) camera model. Instead of perspective projection, the model
+<p>Here \((x_{ij}, y_{ij})\) is the location of feature \(j\) in image \(i\). Each pair of rows corresponds to one camera image, and each column is one tracked feature point. Then, we centre each row by subtracting its mean, which removes the camera translation (for an affine camera, an image point is \(x = A X + t\), so subtracting the mean of the points cancels the translation \(t\) when the 3D points are measured from their centroid), so that \(D\) becomes the product of a motion matrix and a structure matrix. The Tomasi-Kanade factorization method assumes an orthographic (affine) camera model. Instead of perspective projection, the model
   assumes that the image coordinates depend linearly on the 3D coordinates, which is a good approximation when the object is far from the camera relative to its depth variation. This lets us factor \(D\) into a motion matrix \(M\) and a structure
   matrix \(S\), so that \(D = M S\). Here, \(S\) contains all the 3D points,
 </p>
@@ -548,14 +566,13 @@ r_{2K,1} & r_{2K,2} & r_{2K,3}
 <p>The size of \(M\) is \(2K \times 3\) (here \(4 \times 3\)), and each pair of rows describes one camera's viewing directions (its image \(x\)-axis and \(y\)-axis).</p>
 
 <p>One of the properties of the (centred) observation matrix is that its rank is at most 3. This will be important later when we do singular value decomposition! One way to think
-  about it is that in \(D = M S\), \(M\) only has three columns, so the rank of \(D\) is 3 or less. Another way to think about it is that we only have three independent variables
-  in 3D reconstruction, \(X\), \(Y\), and \(Z\), thus we should only have three linearly independent statements.
+  about it is that in \(D = M S\), \(M\) has dimensions \(2K \times 3\) and \(S\) has dimensions \(3 \times N\), so \(M\) only has three columns and the rank of \(D\) is 3 or less. Another way to think about it is that all of the image measurements are generated from
+  three-dimensional scene geometry, so we only have three independent variables, \(X\), \(Y\), and \(Z\).
 </p>
 
-<h4>Singular values of set1</h4>
+<h3>3.2 Singular Value Decomposition of the Observation Matrix</h3>
 
-<p>After taking the SVD of the centred \(D\) for the set1 images, \(D = U \Sigma V^T\), I get singular values of 959.6, 540.5, 184.4, and 27.92. (I write the diagonal matrix of singular values as \(\Sigma\) to avoid
-  a clash with the observation matrix \(D\).) There are four non-zero singular values because \(D\) has only four rows, so it has at most four singular values, and the fourth is not exactly zero in practice: real cameras are not perfectly affine,
+<p>After taking the SVD of the centred \(D\) for the set1 images, \(D = U \Sigma V^T\), I get singular values of 959.6, 540.5, 184.4, and 27.92. There are four non-zero singular values because \(D\) has only four rows, so it has at most four singular values, and the fourth is not exactly zero in practice: real cameras are not perfectly affine,
   and the matched points are noisy and pixel-quantized. In the idealized version, with exactly affine cameras and perfect noise-free matches, \(D = M S\) would have rank 3, so we would expect exactly three non-zero singular values
   (and the fourth would be zero). So now, we truncate the SVD to its top three components to get a good approximation of \(D\) back:
 </p>
@@ -573,41 +590,6 @@ r_{2K,1} & r_{2K,2} & r_{2K,3}
   <li>Compute the SVD of the centred \(D\).</li>
   <li>Keep the top three singular values and vectors, and return \(M = U_3 \Sigma_3\) (motion) and \(S = V_3^T\) (structure).</li>
 </ol>
-
-<h4>Comparison with the ground truth</h4>
-
-<p>This reconstruction is not unique: for any invertible \(3 \times 3\) matrix \(A\), we have \(D = (MA)(A^{-1}S)\), so there are many pairs \((M, S)\) that produce the same \(D\). The SVD therefore gives the structure only up to such a transform.
-  This is why my reconstruction has the same overall shape as the ground truth but is rotated and at a different scale (compare the axis ranges in the figure below, about \(\pm 0.4\) versus 0 to 25). The best
-  linear map that I'm able to construct from my reconstruction to the ground truth fits well, leaving about 9.167% relative error. The rest of the difference comes from noise, from the affine approximation, and from the fact that I did not enforce any
-  metric constraints (such as orthonormal rows of \(M\)) that would remove a possible leftover shear.
-</p>
-
-<figure>
-  <img src="out/p3_set1.png" height="300">
-  <figcaption>Left: 3D structure reconstructed with the Tomasi-Kanade factorization method. Right: the ground truth, set1 dataset.</figcaption>
-</figure>
-
-<h4>Using a subset of the points</h4>
-
-<p>I repeated the process on the <code>set1_subset</code> data, which uses only 18 of the points, and the reconstruction is shown below.</p>
-
-<figure>
-  <img src="out/p3_set1_subset.png" height="300">
-  <figcaption>Left: 3D structure reconstructed with the Tomasi-Kanade factorization method using a subset of the points. Right: the ground truth, <code>set1_subset</code> dataset.</figcaption>
-</figure>
-
-<table>
-  <caption>Singular values of the centred observation matrix \(D\) for the full set1 data and for the subset of points.</caption>
-  <tr><th>Dataset</th><th>Number of points</th><th>\(\sigma_1\)</th><th>\(\sigma_2\)</th><th>\(\sigma_3\)</th><th>\(\sigma_4\)</th></tr>
-  <tr><td>set1</td><td>37</td><td>959.6</td><td>540.5</td><td>184.4</td><td>27.92</td></tr>
-  <tr><td><code>set1_subset</code></td><td>18</td><td>264.5</td><td>210.1</td><td>7.219</td><td>5.129</td></tr>
-</table>
-
-<p>If you feel as if the reconstruction looks off, you're right! This is because the 18 points are almost coplanar. (Centring the ground-truth 3D points of the subset and taking their SVD gives singular values of about 17.28, 14.18, and 0.3752, so
-  they really do lie close to a plane.) In the singular values above, set1 shows a clear fall-off after the third value (184.4 down to 27.92), as expected for a rank-3 structure plus noise. For the subset, the fall-off instead occurs after the second value
-  (210.1 down to 7.219), and the third and fourth values are very similar (7.219 and 5.129). This is how I know the points are close to coplanar: the points effectively span only two dimensions, so the third dimension is dominated by noise.
-  That is why the subset reconstruction is flattened and distorted and no longer resembles the ground truth. All of the singular values are also smaller for the subset, because there are fewer points.
-</p>
 
 <details class="code-block"><summary>Show Tomasi-Kanade Factorization implementation</summary><pre><code>
 def factorization_method(points_im1, points_im2):
@@ -630,6 +612,41 @@ def factorization_method(points_im1, points_im2):
     return structure, motion
 </code></pre></details>
 
+<h3>3.3 Comparison with the Ground Truth</h3>
+
+<p>This reconstruction is not unique: for any invertible \(3 \times 3\) matrix \(A\), we have \(D = (MA)(A^{-1}S)\), so there are many pairs \((M, S)\) that produce the same \(D\). The SVD therefore gives the structure only up to such a transform.
+  This is why my reconstruction has the same overall shape as the ground truth but is rotated and at a different scale (compare the axis ranges in the figure below, about \(\pm 0.4\) versus 0 to 25). The best
+  linear map that I'm able to construct from my reconstruction to the ground truth fits well, leaving about 9.167% relative error. The rest of the difference comes from noise, from the affine approximation, and from the fact that I did not enforce any
+  metric constraints (such as orthonormal rows of \(M\)) that would remove a possible leftover shear.
+</p>
+
+<figure>
+  <img src="out/p3_set1.png" height="300">
+  <figcaption>Left: 3D structure reconstructed with the Tomasi-Kanade factorization method. Right: the ground truth, set1 dataset.</figcaption>
+</figure>
+
+<h3>3.4 Using a Subset of the Points</h3>
+
+<p>I repeated the process on the <code>set1_subset</code> data, which uses only 18 of the points, and the reconstruction is shown below.</p>
+
+<figure>
+  <img src="out/p3_set1_subset.png" height="300">
+  <figcaption>Left: 3D structure reconstructed with the Tomasi-Kanade factorization method using a subset of the points. Right: the ground truth, <code>set1_subset</code> dataset.</figcaption>
+</figure>
+
+<table>
+  <caption>Singular values of the centred observation matrix \(D\) for the full set1 data and for the subset of points.</caption>
+  <tr><th>Dataset</th><th>Number of points</th><th>\(\sigma_1\)</th><th>\(\sigma_2\)</th><th>\(\sigma_3\)</th><th>\(\sigma_4\)</th></tr>
+  <tr><td>set1</td><td>37</td><td>959.6</td><td>540.5</td><td>184.4</td><td>27.92</td></tr>
+  <tr><td>set1_subset</td><td>18</td><td>264.5</td><td>210.1</td><td>7.219</td><td>5.129</td></tr>
+</table>
+
+<p>If you feel as if the reconstruction looks off, you're right! This is because the 18 points are almost coplanar. (Centring the ground-truth 3D points of the subset and taking their SVD gives singular values of about 17.28, 14.18, and 0.3752, so
+  they really do lie close to a plane.) In the singular values above, set1 shows a clear fall-off after the third value (184.4 down to 27.92), as expected for a rank-3 structure plus noise. For the subset, the fall-off instead occurs after the second value
+  (210.1 down to 7.219), and the third and fourth values are very similar (7.219 and 5.129). This is how I know the points are close to coplanar: the points effectively span only two dimensions, so the third dimension is dominated by noise.
+  That is why the subset reconstruction is flattened and distorted and no longer resembles the ground truth. All of the singular values are also smaller for the subset, because there are fewer points.
+</p>
+
 <h2 id="part4">Part Four: Triangulation in Structure from Motion</h2>
 
 <h3>4.1 Initial Estimates of \(R\) and \(T\)</h3>
@@ -641,15 +658,17 @@ def factorization_method(points_im1, points_im2):
 </p>
 
 <figure>
-  <img src="data/statue/images/B21.jpg" height="300" loading="lazy">
-  <img src="data/statue/images/B22.jpg" height="300" loading="lazy">
-  <img src="data/statue/images/B23.jpg" height="300" loading="lazy">
-  <img src="data/statue/images/B24.jpg" height="300" loading="lazy">
-  <img src="data/statue/images/B25.jpg" height="300" loading="lazy">
+  <div class="image-row">
+    <img src="data/statue/images/B21.jpg" alt="Statue image 1" loading="lazy">
+    <img src="data/statue/images/B22.jpg" alt="Statue image 2" loading="lazy">
+    <img src="data/statue/images/B23.jpg" alt="Statue image 3" loading="lazy">
+    <img src="data/statue/images/B24.jpg" alt="Statue image 4" loading="lazy">
+    <img src="data/statue/images/B25.jpg" alt="Statue image 5" loading="lazy">
+  </div>
   <figcaption>Five images of a statue from different perspectives, statue image set.</figcaption>
 </figure>
 
-<p>Here are some equations, rapid fire! A 3D point \(P\) (in homogeneous coordinates) is projected onto a 2D image point \(p\) (also in homogeneous coordinates, and equal only up to scale) by</p>
+<p>The following equations summarize the projective camera model, deep breath! A 3D point \(P\) (in homogeneous coordinates) is projected onto a 2D image point \(p\) (also in homogeneous coordinates, and equal only up to scale) by</p>
 
 \[p = MP\]
 
@@ -667,9 +686,9 @@ f_x & 0 & c_x \\
 
 <p>In this assignment, the code uses \(f_x = f_y = 719.5\) (the focal length in pixels) and \(c_x = c_y = 0\).</p>
 
-<p>Once the calibration is known, the essential matrix is \(E = K^T F K\). The fundamental matrix relates matching points in pixel coordinates, whereas the essential matrix relates matching points in normalized camera coordinates, so it depends only on how the
-  cameras are positioned relative to one another. The way it makes sense in my mind is that \(E\) packages up the relative rotation and translation between the two cameras. If we can pull \(R\) and \(T\) out of \(E\), we know where the cameras are relative to each other,
-  and then we can triangulate the matching points to recover the 3D structure.
+<p>Once the calibration is known, the essential matrix is \(E = K^T F K\). The fundamental matrix relates matching points in pixel coordinates, whereas the essential matrix relates matching points in normalized camera coordinates (\(\hat{x} = K^{-1}p\), for which matches satisfy \(\hat{x}'^{T} E \hat{x} = 0\)), so it depends only on how the
+  cameras are positioned relative to one another. The essential matrix encodes the relative rotation and translation between two calibrated cameras. Once \(E\) is known, we can recover the relative camera motion up to the unavoidable scale ambiguity in the translation. 
+  If we can pull \(R\) and \(T\) out of \(E\), we know where the cameras are relative to each other, and then we can triangulate the matching points to recover the 3D structure.
 </p>
 
 <p>A remarkable result in computer vision is that \(E = [T]_\times R\), which is built from the rotation and translation we mentioned earlier. \([T]_\times\) is a skew-symmetric matrix,</p>
@@ -726,7 +745,9 @@ def estimate_initial_RT(E):
     return RT
 </code></pre></details>
 
-<p>For the first pair of images in the statue set, these are the four estimated \([R \mid T]\) matrices. The third one matches the example \(R, T\) given in the assignment.</p>
+<p>For the first pair of images in the statue set, these are the four estimated \([R \mid T]\) matrices. The third one matches the example \(R, T\) given in the assignment.
+  (hint, hint, wink, wink: only one of them is correct)
+</p>
 
 <pre>
 Estimated RT:
@@ -785,7 +806,7 @@ def linear_estimate_3d_point(image_points, camera_matrices):
     return P[:3] / P[3]                          # back from homogeneous coordinates
 </code></pre></details>
 
-<p>The sum of absolute differences between my estimated 3D point and the expected point for the first two statue images is 0.002924. This is small (the expected point is only given to four decimal places), so the linear estimate is working.</p>
+<p>The sum of absolute differences between my estimated 3D point and the expected point for the first two statue images is 0.002924. This is small, so the linear estimate is working.</p>
 
 <h3>4.3 Nonlinear Optimization of 3D Points</h3>
 
@@ -898,7 +919,7 @@ def estimate_RT_from_E(E, image_points, K):
   matched points. It then refines the camera motion and the 3D points with bundle adjustment, merges the pairs into one reconstruction, and finally triangulates the dense matches with the nonlinear estimate. Below is the 3D reconstruction of the statue! The interactive plot can be rotated by dragging
   and zoomed with the scroll wheel, and a static view is included underneath it.</p>
 
-<iframe src="out/statue_3d.html" title="Interactive 3D reconstruction of the statue" width="100%" height="600" style="border:1px solid #ddd;" loading="lazy"></iframe>
+<iframe src="statue_3d.html" title="Interactive 3D reconstruction of the statue" width="100%" height="600" style="border:1px solid #ddd;" loading="lazy"></iframe>
 
 <figure>
   <img src="out/p4_statue.png" height="500">
@@ -908,9 +929,10 @@ def estimate_RT_from_E(E, image_points, K):
 <p>Now what if we wanted to reconstruct a larger scene, such as a house? That would likely be harder for several reasons:</p>
 
 <ul>
-  <li><b>Occlusion and visibility:</b> a house can't be seen from all sides at once, and parts of it hide other parts. Each 3D point is visible in only a few images, so we have fewer correspondences per point, and some views barely overlap.</li>
-  <li><b>Larger scale and depth range:</b> parts of a house can be much closer to or farther from the camera than others, so the image scale and the triangulation accuracy vary a lot, and distant points are triangulated poorly because the rays are nearly parallel.</li>
-  <li><b>Hard-to-match surfaces:</b> walls, roofs and windows are often flat, textureless, repetitive or reflective, which gives few reliable features and many false matches.</li>
-  <li><b>More images and accumulated error:</b> covering the whole house takes many more images, so small errors in each estimated \(R, T\) accumulate as we chain them together, and bundle adjustment becomes much more expensive.</li>
-  <li><b>Changing conditions:</b> over a longer capture, lighting and shadows change, and moving objects (trees, people, cars) violate the assumption that the scene is static.</li>
+  <li>Occlusion and visibility: a house can't be seen from all sides at once, and parts of it hide other parts. Each 3D point is visible in only a few images, so we have fewer correspondences per point, and some views barely overlap. (Although, this is also an issue with the statue.)
+  </li>
+  <li>Larger scale and depth range: parts of a house can be much closer to or farther from the camera than others, so the image scale and the triangulation accuracy vary a lot, and distant points are triangulated poorly because the rays are nearly parallel.</li>
+  <li>Hard-to-match surfaces: walls, roofs and windows are often flat, textureless, repetitive or reflective, which gives few reliable features and many false matches.</li>
+  <li>More images and accumulated error: covering the whole house takes many more images, so small errors in each estimated \(R, T\) accumulate as we chain them together, and bundle adjustment becomes much more expensive.</li>
+  <li>Changing conditions: over a longer capture, lighting and shadows change, and moving objects (trees, people, cars) violate the assumption that the scene is static.</li>
 </ul>
